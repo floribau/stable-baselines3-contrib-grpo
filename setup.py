@@ -1,6 +1,12 @@
-<img src="docs/\_static/img/logo.png" align="right" width="40%"/>
+import os
 
-[![CI](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/workflows/CI/badge.svg)](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/actions) [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+from setuptools import find_packages, setup
+
+with open(os.path.join("sb3_contrib", "version.txt")) as file_handler:
+    __version__ = file_handler.read().strip()
+
+
+long_description = """
 
 # Stable-Baselines3 - Contrib (SB3-Contrib)
 
@@ -19,7 +25,6 @@ However sometimes these utilities were too niche to be considered for stable-bas
 We hope this allows us to provide reliable implementations following stable-baselines usual standards (consistent style, documentation, etc) beyond the relatively small scope of utilities in the main repository.
 
 
-
 ## Features
 
 See documentation for the full list of included features.
@@ -36,7 +41,6 @@ See documentation for the full list of included features.
 **Gym Wrappers**:
 - [Time Feature Wrapper](https://arxiv.org/abs/1712.00378)
 
-
 ## Documentation
 
 Documentation is available online: [https://sb3-contrib.readthedocs.io/](https://sb3-contrib.readthedocs.io/)
@@ -44,13 +48,7 @@ Documentation is available online: [https://sb3-contrib.readthedocs.io/](https:/
 
 ## Installation
 
-To install Stable Baselines3 contrib with pip, execute:
-
-```
-pip install sb3-contrib
-```
-
-We recommend to use the `master` version of [Stable Baselines3](https://github.com/DLR-RM/stable-baselines3/).
+**Note:** You need the `master` version of [Stable Baselines3](https://github.com/DLR-RM/stable-baselines3/).
 
 To install Stable Baselines3 `master` version:
 ```
@@ -60,26 +58,42 @@ pip install git+https://github.com/DLR-RM/stable-baselines3
 To install Stable Baselines3 contrib `master` version:
 ```
 pip install git+https://github.com/Stable-Baselines-Team/stable-baselines3-contrib
-```
 
-## How To Contribute
-
-If you want to contribute, please read [**CONTRIBUTING.md**](./CONTRIBUTING.md) guide first.
+"""  # noqa:E501
 
 
-## Citing the Project
-
-To cite this repository in publications (please cite SB3 directly):
-
-```bibtex
-@article{stable-baselines3,
-  author  = {Antonin Raffin and Ashley Hill and Adam Gleave and Anssi Kanervisto and Maximilian Ernestus and Noah Dormann},
-  title   = {Stable-Baselines3: Reliable Reinforcement Learning Implementations},
-  journal = {Journal of Machine Learning Research},
-  year    = {2021},
-  volume  = {22},
-  number  = {268},
-  pages   = {1-8},
-  url     = {http://jmlr.org/papers/v22/20-1364.html}
-}
-```
+setup(
+    name="sb3_contrib",
+    packages=[package for package in find_packages() if package.startswith("sb3_contrib")],
+    package_data={"sb3_contrib": ["py.typed", "version.txt"]},
+    install_requires=[
+        "stable_baselines3>=2.6.1a1,<3.0",
+    ],
+    description="Contrib package of Stable Baselines3, experimental code.",
+    author="Antonin Raffin",
+    url="https://github.com/Stable-Baselines-Team/stable-baselines3-contrib",
+    author_email="antonin.raffin@dlr.de",
+    keywords="reinforcement-learning-algorithms reinforcement-learning machine-learning "
+    "gym openai stable baselines toolbox python data-science",
+    license="MIT",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    version=__version__,
+    python_requires=">=3.9",
+    # PyPI package information.
+    project_urls={
+        "Code": "https://github.com/Stable-Baselines-Team/stable-baselines3-contrib",
+        "Documentation": "https://sb3-contrib.readthedocs.io/",
+        "Changelog": "https://stable-baselines3.readthedocs.io/en/master/misc/changelog.html",
+        "Stable-Baselines3": "https://github.com/DLR-RM/stable-baselines3",
+        "RL-Zoo": "https://github.com/DLR-RM/rl-baselines3-zoo",
+        "SBX": "https://github.com/araffin/sbx",
+    },
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+    ],
+)
