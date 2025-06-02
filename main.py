@@ -5,19 +5,20 @@ import numpy as np
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.ppo import PPO
 from sb3_contrib.grpo.grpo import GRPO
+from sb3_contrib.grpo.buffers import StepwiseGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-TRAINING_TIMESTEPS = 50_000
+TRAINING_TIMESTEPS = 100_000
 EVAL_TIMESTEPS = 10_000
+USE_BASELINE = True
 
 grpo_vec_env = make_vec_env("CartPole-v1", n_envs=1)
 ppo_vec_env = make_vec_env("CartPole-v1", n_envs=1)
 
-grpo_model = GRPO("GroupPolicy", grpo_vec_env, verbose=1, group_size=16, learning_rate=0.001)
+grpo_model = GRPO("GroupPolicy", grpo_vec_env, verbose=1, group_size=16, learning_rate=0.001, kl_beta=0, group_rollout_buffer_class=StepwiseGroupBuffer)
+# grpo_model = GRPO("GroupPolicy", grpo_vec_env, verbose=1, group_size=16, learning_rate=0.001, kl_beta=0)
 grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS)
-ppo_model = PPO("MlpPolicy", ppo_vec_env, verbose=0, learning_rate=0.001, batch_size=16)
-ppo_model.learn(total_timesteps=TRAINING_TIMESTEPS)
 # model.save("grpo_cartpole")
 
 obs = grpo_vec_env.reset()
@@ -45,24 +46,28 @@ if all_episode_rewards:
 else:
     print("No episodes finished during GRPO eval.")
 
-obs = grpo_vec_env.reset()
-episode_rewards = [[] for _ in range(grpo_vec_env.num_envs)]
-all_episode_rewards = []
+if USE_BASELINE:
+    # PPO eval as baseline
+    ppo_model = PPO("MlpPolicy", ppo_vec_env, verbose=0, learning_rate=0.001, batch_size=16)
+    ppo_model.learn(total_timesteps=TRAINING_TIMESTEPS)
 
-# PPO eval as baseline
-for _ in range(EVAL_TIMESTEPS):
-    action, _ = ppo_model.predict(obs)
-    obs, rewards, dones, _ = ppo_vec_env.step(action)
+    obs = grpo_vec_env.reset()
+    episode_rewards = [[] for _ in range(grpo_vec_env.num_envs)]
+    all_episode_rewards = []
 
-    for i in range(ppo_vec_env.num_envs):
-        episode_rewards[i].append(rewards[i])
-        if dones[i]:
-            total_reward = sum(episode_rewards[i])
-            all_episode_rewards.append(total_reward)
-            episode_rewards[i] = []
+    for _ in range(EVAL_TIMESTEPS):
+        action, _ = ppo_model.predict(obs)
+        obs, rewards, dones, _ = ppo_vec_env.step(action)
 
-if all_episode_rewards:
-    avg_reward = np.mean(all_episode_rewards)
-    print(f"PPO: average reward per episode over {len(all_episode_rewards)} episodes: {avg_reward:.2f}")
-else:
-    print("No episodes finished during PPO eval.")
+        for i in range(ppo_vec_env.num_envs):
+            episode_rewards[i].append(rewards[i])
+            if dones[i]:
+                total_reward = sum(episode_rewards[i])
+                all_episode_rewards.append(total_reward)
+                episode_rewards[i] = []
+
+    if all_episode_rewards:
+        avg_reward = np.mean(all_episode_rewards)
+        print(f"PPO: average reward per episode over {len(all_episode_rewards)} episodes: {avg_reward:.2f}")
+    else:
+        print("No episodes finished during PPO eval.")

@@ -15,17 +15,20 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_schedule_fn, obs_as_tensor, safe_mean
+from stable_baselines3.common.utils import ConstantSchedule, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 
 from sb3_contrib.grpo.buffers import GroupBuffer, Trajectory
 from sb3_contrib.grpo.policies import ActorPolicy
+from sb3_contrib.grpo.buffers import StepwiseGroupBuffer
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
 
 
 class GRPO(BaseAlgorithm):
-    """GRPO class written by ChatGPT"""
+    """
+    TODO write docstring
+    """
 
     group_rollout_buffer: GroupBuffer
     policy: ActorPolicy
@@ -43,6 +46,7 @@ class GRPO(BaseAlgorithm):
         env: GymEnv | str,
         learning_rate: float | Schedule = 3e-4,
         group_size: int = 64,
+        n_epochs: int = 10,
         gamma: float = 1,
         clip_range: float | Schedule = 0.2,
         scale_rewards: bool = False,
@@ -80,6 +84,7 @@ class GRPO(BaseAlgorithm):
         )
         self.group_size = group_size
         self.gamma = gamma
+        self.n_epochs = n_epochs  # TODO use this in training
         self.clip_range = clip_range
         self.scale_rewards = scale_rewards
         self.kl_beta = kl_beta
@@ -118,7 +123,7 @@ class GRPO(BaseAlgorithm):
         )
         self.policy = self.policy.to(self.device)
         self.policy_ref = None
-        self.clip_range = get_schedule_fn(self.clip_range)
+        self.clip_range = ConstantSchedule(self.clip_range)
         # Warn when not using CPU with MlpPolicy
         self._maybe_recommend_cpu()
 
@@ -223,10 +228,14 @@ class GRPO(BaseAlgorithm):
                 actions = actions.long().flatten()
 
             current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
+
             ratios = th.exp(current_log_probs - old_log_probs)
-            advantage = advantages[traj_idx]
-            advantage_tensor = th.full_like(current_log_probs, advantage).detach()
-            # TODO advantage tensor assumes scalar rewards, needs to be adpated when switching to per-step rewards
+
+            if isinstance(self.group_rollout_buffer, StepwiseGroupBuffer):
+                advantage_tensor = advantages[traj_idx].detach()
+            else:
+                advantage = advantages[traj_idx]
+                advantage_tensor = th.full_like(current_log_probs, advantage).detach()
 
             # Surrogate loss
             surr1 = ratios * advantage_tensor
@@ -237,8 +246,8 @@ class GRPO(BaseAlgorithm):
             with th.no_grad():
                 log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
             kl_ratios = log_probs_ref - current_log_probs.detach()
-            kl_div_estimate = -th.exp(kl_ratios) - kl_ratios - 1
-            kl_loss = kl_div_estimate.mean()
+            kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
+            kl_loss = -kl_div_estimate.mean()
 
             # Entropy loss
             if entropy is None:
@@ -292,7 +301,7 @@ class GRPO(BaseAlgorithm):
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         if len(self.ep_success_buffer) > 0:
             self.logger.record("rollout/success_rate", safe_mean(self.ep_success_buffer))
-        self.logger.dump(step=self.num_timesteps)  # TODO check this line
+        self.logger.dump(step=self.num_timesteps)
 
     def learn(
         self,

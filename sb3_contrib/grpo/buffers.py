@@ -14,7 +14,7 @@ class Trajectory:
     def __init__(self, device: th.device | str = "auto", gamma: float = 1):
         self.device = get_device(device)
         self.gamma = gamma
-        # IDEA use np.empty((0,), dtype=x) for better performance
+        # IDEA use th.empty((0,), dtype=x) for better performance
         self.observations: list[np.ndarray] = []
         self.actions: list[int] = []  # IDEA use float for continuous actions
         self.rewards: list[float] = []
@@ -47,25 +47,30 @@ class Trajectory:
             return_sum = r + self.gamma * return_sum
         return return_sum
 
-    def get_returns_to_go(self) -> np.ndarray[float]:
+    def get_returns_to_go(self) -> th.Tensor:
         """
         Returns the returns-to-go for each step as the discounted sum of rewards-to-go.
         In standard GRPO, this is done without discounting (gamma=1).
         """
         rollout_len = len(self.rewards)
-        returns_to_go = np.empty(rollout_len)
+        returns_to_go = th.empty(rollout_len)
 
         discounted_return = 0.0
         for t in reversed(range(rollout_len)):
-            discounted_return = self.rewards[t] + self.gamma * discounted_return  # TODO check if reward is of correct dtype
+            discounted_return = float(self.rewards[t]) + self.gamma * discounted_return  # TODO check if reward is of correct dtype
             returns_to_go[t] = discounted_return
 
         return returns_to_go
 
     def to_tensor(self) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
-        observations = th.tensor(np.array(self.observations), device=self.device)
-        actions = th.tensor(np.array(self.actions), device=self.device)
-        log_probs = th.stack([th.as_tensor(p, device=self.device) for p in self.log_probs])  # IDEA use th.tensor directly?
+        observations_np = np.stack(self.observations)
+        observations = th.as_tensor(observations_np, dtype=th.float32, device=self.device)
+
+        actions_np = np.array(self.actions)
+        actions = th.as_tensor(actions_np, dtype=th.float32, device=self.device)
+
+        log_probs = th.as_tensor(self.log_probs, dtype=th.float32, device=self.device)  # IDEA use th.tensor directly?
+
         return observations, actions, log_probs
 
 
@@ -139,3 +144,24 @@ class GroupBuffer(BaseBuffer):
             NotImplementedError: This method is not implemented for GRPO.
         """
         raise NotImplementedError
+
+class StepwiseGroupBuffer(GroupBuffer):
+    """
+    Group Buffer class that calculates returns and advantages with the returns-to-go per step.
+    """
+    def _compute_returns(self):
+        if self.returns is None:
+            self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
+
+    def get_advantages(self) -> list[th.Tensor]:
+        assert len(self.trajectories) > 0
+        self._compute_returns()
+
+        all_returns_to_go = th.cat(self.returns)
+        mean_return = all_returns_to_go.mean()
+        std_return = all_returns_to_go.std()
+
+        advantages = [r - mean_return for r in self.returns]
+        if self.scale_rewards:
+            advantages = [a / std_return for a in advantages]
+        return advantages
