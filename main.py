@@ -2,23 +2,35 @@
 import warnings
 
 import numpy as np
+import matplotlib.pyplot as plt
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.ppo import PPO
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.grpo.buffers import StepwiseGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-TRAINING_TIMESTEPS = 100_000
-EVAL_TIMESTEPS = 10_000
-USE_BASELINE = True
+TRAINING_TIMESTEPS = 500_000
+EVAL_TIMESTEPS = 100
+USE_BASELINE = False
 
 grpo_vec_env = make_vec_env("CartPole-v1", n_envs=1)
 ppo_vec_env = make_vec_env("CartPole-v1", n_envs=1)
+eval_env = make_vec_env("CartPole-v1", n_envs=1)
+
+eval_callback = EvalCallback(
+    eval_env,
+    log_path="./eval_logs/",
+    eval_freq=10000,
+    n_eval_episodes=5,
+    deterministic=True,
+    render=False,
+)
 
 grpo_model = GRPO("GroupPolicy", grpo_vec_env, verbose=1, group_size=16, learning_rate=0.001, kl_beta=0, group_rollout_buffer_class=StepwiseGroupBuffer)
 # grpo_model = GRPO("GroupPolicy", grpo_vec_env, verbose=1, group_size=16, learning_rate=0.001, kl_beta=0)
-grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS)
+grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS, callback=eval_callback)
 # model.save("grpo_cartpole")
 
 obs = grpo_vec_env.reset()
@@ -71,3 +83,22 @@ if USE_BASELINE:
         print(f"PPO: average reward per episode over {len(all_episode_rewards)} episodes: {avg_reward:.2f}")
     else:
         print("No episodes finished during PPO eval.")
+
+eval_path = "./eval_logs/evaluations.npz"
+data = np.load(eval_path)
+timesteps = data["timesteps"]
+results = data["results"]
+
+mean_rewards = results.mean(axis=1)
+std_rewards = results.std(axis=1)
+
+plt.plot(timesteps, mean_rewards, label="Mean Evaluation Reward")
+plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=0.3)
+plt.xlabel("Timesteps")
+plt.ylabel("Evaluation Reward")
+plt.title("Evaluation Performance Over Time")
+plt.legend()
+plt.grid()
+plt.tight_layout()
+plt.savefig("/eval_images/eval_performance.png")
+plt.show()

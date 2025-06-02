@@ -173,9 +173,16 @@ class GRPO(BaseAlgorithm):
                 actions = actions.cpu().numpy()  # convert tensor to numpy array since env.step requires numpy array as input
                 next_obs, rewards, dones, infos = env.step(actions)
 
+                callback.update_locals(locals())
+                callback.on_step()
+
                 self.num_timesteps += env.num_envs
 
                 self._update_info_buffer(infos, dones)
+
+                if isinstance(self.action_space, spaces.Discrete):
+                    # Reshape in case of discrete action
+                    actions = actions.reshape(-1, 1)
 
                 # HACK the float cast is only a quickfix, more work needs to be done for multiple parallel envs
                 traj.add(obs=last_obs, action=actions, reward=float(rewards), log_prob=log_probs, done=dones)
