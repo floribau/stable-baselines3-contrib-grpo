@@ -219,58 +219,62 @@ class GRPO(BaseAlgorithm):
         pg_losses, kl_losses, entropy_losses, clip_fractions = [], [], [], []
 
         advantages = self.group_rollout_buffer.get_advantages()
-        for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
-            obs, actions, old_log_probs = traj.to_tensor()
-            old_log_probs = old_log_probs.detach()
 
-            if len(obs) == 0:
-                continue
+        for _ in range(self.n_epochs):
 
-            if isinstance(self.action_space, spaces.Discrete):
-                # Convert discrete action from float to long
-                actions = actions.long().flatten()
+            for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
+                obs, actions, old_log_probs = traj.to_tensor()
+                old_log_probs = old_log_probs.detach()
 
-            current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
+                if len(obs) == 0:
+                    continue
 
-            ratios = th.exp(current_log_probs - old_log_probs)
+                if isinstance(self.action_space, spaces.Discrete):
+                    # Convert discrete action from float to long
+                    actions = actions.long().flatten()
 
-            advantage_tensor = advantages[traj_idx].detach()
+                current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
 
-            # Surrogate loss
-            surr1 = ratios * advantage_tensor
-            surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantage_tensor
-            policy_loss = -th.min(surr1, surr2).mean()
+                ratios = th.exp(current_log_probs - old_log_probs)
 
-            # KL divergence penalty
-            with th.no_grad():
-                log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
-            kl_ratios = log_probs_ref - current_log_probs.detach()
-            kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
-            kl_loss = -kl_div_estimate.mean()
+                advantage_tensor = advantages[traj_idx].detach()
 
-            # Entropy loss
-            if entropy is None:
-                # Approximate entropy when no analytical form
-                entropy_loss = -th.mean(-current_log_probs)
-            else:
-                entropy_loss = -th.mean(entropy)
+                # Surrogate loss
+                surr1 = ratios * advantage_tensor
+                surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantage_tensor
+                policy_loss = -th.min(surr1, surr2).mean()
 
-            loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
+                # KL divergence penalty
+                with th.no_grad():
+                    log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
+                kl_ratios = log_probs_ref - current_log_probs.detach()
+                kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
+                kl_loss = -kl_div_estimate.mean()
 
-            # Logging
-            pg_losses.append(policy_loss.item())
-            kl_losses.append(kl_loss.item())
-            entropy_losses.append(entropy_loss.item())
-            clip_fraction = th.mean((th.abs(ratios - 1.0) > clip_range).float()).item()
-            clip_fractions.append(clip_fraction)
+                # Entropy loss
+                if entropy is None:
+                    # Approximate entropy when no analytical form
+                    entropy_loss = -th.mean(-current_log_probs)
+                else:
+                    entropy_loss = -th.mean(entropy)
 
-            self.policy.optimizer.zero_grad()
-            loss.backward()
-            if self.max_grad_norm is not None:
-                # Clip grad norm
-                th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-            self.policy.optimizer.step()
-            self._n_updates += 1
+                loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
+
+                # Logging
+                pg_losses.append(policy_loss.item())
+                kl_losses.append(kl_loss.item())
+                entropy_losses.append(entropy_loss.item())
+                clip_fraction = th.mean((th.abs(ratios - 1.0) > clip_range).float()).item()
+                clip_fractions.append(clip_fraction)
+
+                self.policy.optimizer.zero_grad()
+                loss.backward()
+                if self.max_grad_norm is not None:
+                    # Clip grad norm
+                    th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                self.policy.optimizer.step()
+
+            self._n_updates += 1  # this is in accordance with PPO from SB3
 
         return pg_losses, kl_losses, entropy_losses, clip_fractions, loss
 
@@ -324,9 +328,7 @@ class GRPO(BaseAlgorithm):
             self.group_rollout_buffer.reset()  # Reset the group buffer before collecting new rollouts
             self.collect_group_rollouts(env=self.env, callback=callback, group_size=self.group_size)
 
-            self._update_current_progress_remaining(
-                self.num_timesteps, total_timesteps
-            )
+            self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
 
             if self._current_progress_remaining < 0:
                 # self.num_timesteps > total_timesteps: stop training
