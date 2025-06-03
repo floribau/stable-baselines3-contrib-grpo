@@ -141,3 +141,34 @@ class GroupBuffer(BaseBuffer):
             NotImplementedError: This method is not implemented for GRPO.
         """
         raise NotImplementedError
+
+
+class TimestepGroupBuffer(GroupBuffer):
+    """
+    TODO docstring how advantage is calculated (returns-to-go per timestep)
+    """
+    def _compute_returns(self):
+        if self.returns is None:
+            self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
+
+    def get_advantages(self) -> list[th.Tensor]:
+        assert len(self.trajectories) > 0
+        self._compute_returns()
+
+        max_trajectory_length = max(len(traj.rewards) for traj in self.trajectories)
+        advantages = [th.empty(len(traj_returns)) for traj_returns in self.returns]  # placeholder for advantages
+
+        for t in range(max_trajectory_length):
+            # BUG TypeError: only integer tensors of a single element can be converted to an index
+            timestep_returns = np.ndarray([traj_returns[t] for traj_returns in self.returns if len(traj_returns) > t])
+            mean_timestep_return = timestep_returns.mean()
+            std_timestep_return = timestep_returns.std()
+
+            for i, traj_returns in enumerate(self.returns):
+                if len(traj_returns) > t:
+                    single_advantage = traj_returns[t] - mean_timestep_return
+                    if self.scale_rewards:
+                        single_advantage /= std_timestep_return
+                    advantages[i][t] = single_advantage
+
+            return advantages
