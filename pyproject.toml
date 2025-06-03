@@ -90,6 +90,9 @@ rich = "*"
 tensorboard = ">=2.9.1"
 torch = ">=2.3,<3.0"
 tqdm = "*"
+ruff = "^0.11.12"
+black = "^25.1.0"
+isort = "^6.0.1"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

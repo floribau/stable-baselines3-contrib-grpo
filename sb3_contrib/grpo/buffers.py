@@ -147,6 +147,7 @@ class TimestepGroupBuffer(GroupBuffer):
     """
     TODO docstring how advantage is calculated (returns-to-go per timestep)
     """
+
     def _compute_returns(self):
         if self.returns is None:
             self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
