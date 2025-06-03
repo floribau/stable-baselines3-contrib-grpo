@@ -37,16 +37,6 @@ class Trajectory:
         self.log_probs.append(log_prob)
         self.dones.append(done)
 
-    def get_return_sum(self) -> float:
-        """
-        Returns the trajectory return sum as the discounted sum of rewards.
-        In standard GRPO, this is done without discounting (gamma=1).
-        """
-        return_sum = 0
-        for r in reversed(self.rewards):
-            return_sum = r + self.gamma * return_sum
-        return return_sum
-
     def get_returns_to_go(self) -> th.Tensor:
         """
         Returns the returns-to-go for each step as the discounted sum of rewards-to-go.
@@ -57,19 +47,22 @@ class Trajectory:
 
         discounted_return = 0.0
         for t in reversed(range(rollout_len)):
-            discounted_return = float(self.rewards[t]) + self.gamma * discounted_return  # TODO check if reward is of correct dtype
+            discounted_return = float(self.rewards[t]) + self.gamma * discounted_return
             returns_to_go[t] = discounted_return
 
         return returns_to_go
 
     def to_tensor(self) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
+        """
+        TODO docstring
+        """
         observations_np = np.stack(self.observations)
         observations = th.as_tensor(observations_np, dtype=th.float32, device=self.device)
 
         actions_np = np.array(self.actions)
         actions = th.as_tensor(actions_np, dtype=th.float32, device=self.device)
 
-        log_probs = th.as_tensor(self.log_probs, dtype=th.float32, device=self.device)  # IDEA use th.tensor directly?
+        log_probs = th.as_tensor(self.log_probs, dtype=th.float32, device=self.device)
 
         return observations, actions, log_probs
 
@@ -77,6 +70,7 @@ class Trajectory:
 class GroupBuffer(BaseBuffer):
     """
     Buffer class containing a group of trajectories for a single GRPO update.
+    TODO write docstring for how advantage is calculated (all returns-to-go)
     """
 
     trajectories: list[Trajectory]
@@ -117,23 +111,26 @@ class GroupBuffer(BaseBuffer):
     def _compute_returns(self):
         """
         Fills self.returns if not set yet.
-        Return at index i corresponds to the trajectory at index i.
+        Return at index t in a tensor i corresponds to the return for timestep t in trajectory i.
         """
         if self.returns is None:
-            self.returns = np.array([traj.get_return_sum() for traj in self.trajectories])
+            self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
 
-    def get_advantages(self) -> np.ndarray:
+    def get_advantages(self) -> list[th.Tensor]:
         """
-        Returns a numpy ndarray of advantages relative to the group.
-        Advantage at index i corresponds to the trajectory at index i.
+        Returns a list of advantage tensors relative to the group.
+        Advantage at index t in a tensor i corresponds to the advantage for timestep t in trajectory i.
         """
         assert len(self.trajectories) > 0
         self._compute_returns()
 
-        advantages = self.returns - np.mean(self.returns)
-        if self.scale_rewards:
-            advantages /= np.std(self.returns) + 1e-8  # Avoid division by zero
+        all_returns_to_go = th.cat(self.returns)
+        mean_return = all_returns_to_go.mean()
+        std_return = all_returns_to_go.std()
 
+        advantages = [r - mean_return for r in self.returns]
+        if self.scale_rewards:
+            advantages = [a / (std_return + 1e-8) for a in advantages]  # avoid division by zero
         return advantages
 
     def _get_samples(self, batch_inds: np.ndarray, env: VecNormalize | None = None):
@@ -144,24 +141,3 @@ class GroupBuffer(BaseBuffer):
             NotImplementedError: This method is not implemented for GRPO.
         """
         raise NotImplementedError
-
-class StepwiseGroupBuffer(GroupBuffer):
-    """
-    Group Buffer class that calculates returns and advantages with the returns-to-go per step.
-    """
-    def _compute_returns(self):
-        if self.returns is None:
-            self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
-
-    def get_advantages(self) -> list[th.Tensor]:
-        assert len(self.trajectories) > 0
-        self._compute_returns()
-
-        all_returns_to_go = th.cat(self.returns)
-        mean_return = all_returns_to_go.mean()
-        std_return = all_returns_to_go.std()
-
-        advantages = [r - mean_return for r in self.returns]
-        if self.scale_rewards:
-            advantages = [a / std_return for a in advantages]
-        return advantages

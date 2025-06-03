@@ -8,7 +8,6 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.ppo import PPO
 from sb3_contrib.grpo.grpo import GRPO
-from sb3_contrib.grpo.buffers import StepwiseGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
@@ -54,7 +53,6 @@ grpo_model = GRPO(
     group_size=16,
     learning_rate=0.001,
     kl_beta=0,
-    group_rollout_buffer_class=StepwiseGroupBuffer
 )
 # grpo_model = GRPO("GroupPolicy", grpo_vec_env, verbose=1, group_size=16, learning_rate=0.001, kl_beta=0)
 grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS, callback=grpo_eval_callback)

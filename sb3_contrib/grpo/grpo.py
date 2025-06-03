@@ -20,7 +20,6 @@ from stable_baselines3.common.vec_env import VecEnv
 
 from sb3_contrib.grpo.buffers import GroupBuffer, Trajectory
 from sb3_contrib.grpo.policies import ActorPolicy
-from sb3_contrib.grpo.buffers import StepwiseGroupBuffer
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
 
@@ -205,7 +204,7 @@ class GRPO(BaseAlgorithm):
         if batch_updates:
             pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_aggregated_update(clip_range)
         else:
-            pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_multiple_updates(clip_range)
+            pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_process_supervision(clip_range)
 
         # Logs
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
@@ -219,7 +218,7 @@ class GRPO(BaseAlgorithm):
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/clip_range", clip_range)
 
-    def _train_multiple_updates(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
+    def _train_process_supervision(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
         pg_losses, kl_losses, entropy_losses, clip_fractions = [], [], [], []
 
         advantages = self.group_rollout_buffer.get_advantages()
@@ -238,11 +237,7 @@ class GRPO(BaseAlgorithm):
 
             ratios = th.exp(current_log_probs - old_log_probs)
 
-            if isinstance(self.group_rollout_buffer, StepwiseGroupBuffer):
-                advantage_tensor = advantages[traj_idx].detach()
-            else:
-                advantage = advantages[traj_idx]
-                advantage_tensor = th.full_like(current_log_probs, advantage).detach()
+            advantage_tensor = advantages[traj_idx].detach()
 
             # Surrogate loss
             surr1 = ratios * advantage_tensor
