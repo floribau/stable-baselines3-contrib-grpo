@@ -74,7 +74,7 @@ class GRPO(BaseAlgorithm):
             device=device,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
-            support_multi_env=False,  # currently, GRPO only supports single env
+            support_multi_env=False,  # NOTE currently, GRPO only supports single env
             monitor_wrapper=monitor_wrapper,
             seed=seed,
             stats_window_size=stats_window_size,
@@ -83,7 +83,7 @@ class GRPO(BaseAlgorithm):
         )
         self.group_size = group_size
         self.gamma = gamma
-        self.n_epochs = n_epochs  # TODO use this in training
+        self.n_epochs = n_epochs
         self.clip_range = clip_range
         self.scale_rewards = scale_rewards
         self.kl_beta = kl_beta

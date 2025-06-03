@@ -16,7 +16,7 @@ class Trajectory:
         self.gamma = gamma
         # IDEA use th.empty((0,), dtype=x) for better performance
         self.observations: list[np.ndarray] = []
-        self.actions: list[int] = []  # IDEA use float for continuous actions
+        self.actions: list[int] = []  # IDEA use float for continuous actions (but PPO doesnÄt support continuous AS)
         self.rewards: list[float] = []
         self.log_probs: list[float] = []
         self.dones: list[bool] = []
@@ -160,8 +160,7 @@ class TimestepGroupBuffer(GroupBuffer):
         advantages = [th.empty(len(traj_returns)) for traj_returns in self.returns]  # placeholder for advantages
 
         for t in range(max_trajectory_length):
-            # BUG TypeError: only integer tensors of a single element can be converted to an index
-            timestep_returns = np.ndarray([traj_returns[t] for traj_returns in self.returns if len(traj_returns) > t])
+            timestep_returns = np.array([traj_returns[t] if len(traj_returns) > t else 0 for traj_returns in self.returns])
             mean_timestep_return = timestep_returns.mean()
             std_timestep_return = timestep_returns.std()
 
