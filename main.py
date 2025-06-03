@@ -12,14 +12,14 @@ from sb3_contrib.grpo.buffers import TimestepGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-TRAINING_TIMESTEPS = 40_000
+TRAINING_TIMESTEPS = 60_000
 RUN_TIMESTEPS = 100
 
 RUN_GRPO = False
 RUN_PPO = False
 
 N_EVAL_EPISODES = 5
-EVAL_FREQ = 2000
+EVAL_FREQ = 1000
 GRPO_EVAL_PATH = "./eval_logs/grpo/"
 PPO_EVAL_PATH = "./eval_logs/ppo/"
 
