@@ -12,14 +12,14 @@ from sb3_contrib.grpo.buffers import StepwiseGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-TRAINING_TIMESTEPS = 100_000
+TRAINING_TIMESTEPS = 40_000
 RUN_TIMESTEPS = 100
 
 RUN_GRPO = False
 RUN_PPO = False
 
 N_EVAL_EPISODES = 5
-EVAL_FREQ = 1000
+EVAL_FREQ = 2000
 GRPO_EVAL_PATH = "./eval_logs/grpo/"
 PPO_EVAL_PATH = "./eval_logs/ppo/"
 
@@ -133,5 +133,6 @@ plt.title("Evaluation Performance Over Time")
 plt.legend()
 plt.grid()
 plt.tight_layout()
-plt.savefig(f"./eval_images/eval_performance_{datetime.now()}.png")
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+plt.savefig(f"./eval_images/eval_performance_{timestamp}.png")
 plt.show()
