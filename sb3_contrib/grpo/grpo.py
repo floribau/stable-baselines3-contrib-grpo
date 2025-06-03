@@ -192,7 +192,7 @@ class GRPO(BaseAlgorithm):
             callback.update_locals(locals())
             callback.on_rollout_end()
 
-    def train(self, batch_updates: bool = False) -> None:
+    def train(self) -> None:
         """Update policy params."""
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
@@ -201,10 +201,7 @@ class GRPO(BaseAlgorithm):
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)
 
-        if batch_updates:
-            pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_aggregated_update(clip_range)
-        else:
-            pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_process_supervision(clip_range)
+        pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_process_supervision(clip_range)
 
         # Logs
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
@@ -277,10 +274,6 @@ class GRPO(BaseAlgorithm):
 
         return pg_losses, kl_losses, entropy_losses, clip_fractions, loss
 
-    def _train_aggregated_update(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
-        # TODO implement aggregated update
-        raise NotImplementedError
-
     def dump_logs(self, iteration: int = 0):
         """
         Write log.
@@ -313,7 +306,6 @@ class GRPO(BaseAlgorithm):
         tb_log_name: str = "GRPO",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-        batch_updates: bool = False,
     ) -> "GRPO":
         total_timesteps, callback = self._setup_learn(
             total_timesteps=total_timesteps,
@@ -346,7 +338,7 @@ class GRPO(BaseAlgorithm):
                 self.dump_logs(iteration)
 
             self.policy_ref = self.policy.get_frozen_deepcopy()  # set reference policy to the current policy
-            self.train(batch_updates)  # Update the policy params based on the collected group rollouts
+            self.train()  # Update the policy params based on the collected group rollouts
 
             iteration += 1
 
