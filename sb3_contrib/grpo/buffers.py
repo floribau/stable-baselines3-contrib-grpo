@@ -173,3 +173,22 @@ class TimestepGroupBuffer(GroupBuffer):
                     advantages[i][t] = single_advantage
 
             return advantages
+
+
+class OutcomeGroupBuffer(GroupBuffer):
+    """
+    TODO docstring how advantage is calculated (reward sum per trajectory, outcome supervision)
+    """
+
+    def _compute_returns(self):
+        if self.returns is None:
+            self.returns = np.array([sum(traj.rewards) for traj in self.trajectories])
+
+    def get_advantages(self) -> np.ndarray:
+        mean_return = np.mean(self.returns)
+        std_return = np.std(self.returns)
+
+        advantages = self.returns - mean_return
+        if self.scale_rewards:
+            advantages /= (std_return + 1e-8)  # avoid division by zero
+        return advantages

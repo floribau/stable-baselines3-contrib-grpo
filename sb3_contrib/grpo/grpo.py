@@ -247,9 +247,9 @@ class GRPO(BaseAlgorithm):
                 # KL divergence penalty
                 with th.no_grad():
                     log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
-                kl_ratios = log_probs_ref - current_log_probs.detach()
-                kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
-                kl_loss = kl_div_estimate.mean()
+                    kl_ratios = log_probs_ref - current_log_probs.detach()
+                    kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
+                    kl_loss = kl_div_estimate.mean()
 
                 # Entropy loss
                 if entropy is None:
@@ -275,6 +275,72 @@ class GRPO(BaseAlgorithm):
                 self.policy.optimizer.step()
 
             self._n_updates += 1  # this is in accordance with PPO from SB3
+
+        return pg_losses, kl_losses, entropy_losses, clip_fractions, loss
+
+    def _train_outcome_supvervision(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
+        pg_losses, kl_losses, entropy_losses, clip_fractions = [], [], [], []
+
+        advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories,)
+
+        for _ in range(self.n_epochs):
+
+            for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
+                obs, actions, old_log_probs = traj.to_tensor()
+                old_log_probs = old_log_probs.detach()
+
+                if len(obs) == 0:
+                    continue
+
+                if isinstance(self.action_space, spaces.Discrete):
+                    # Convert discrete action from float to long
+                    actions = actions.long().flatten()
+
+                current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
+
+                # --- Compute scalar advantage for entire trajectory ---
+                advantage = th.tensor(advantages[traj_idx], dtype=th.float32, device=self.device)  # NOTE should be scalar
+
+                # --- Policy gradient loss ---
+                current_log_prob_sum = current_log_probs.sum()  # sum of log probs = log of product of probs
+                old_log_prob_sum = old_log_probs.sum()
+
+                ratio = th.exp(current_log_prob_sum - old_log_prob_sum)
+                surr1 = ratio * advantage
+                surr2 = th.clamp(ratio, 1.0 - clip_range, 1.0 + clip_range) * advantage
+                policy_loss = -th.min(surr1, surr2)  # correct not to use mean() here, since advantage is a scalar
+
+                # --- KL loss ---
+                with th.no_grad():
+                    log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
+                    kl_ratios = log_probs_ref - current_log_probs.detach()
+                    kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
+                    kl_loss = kl_div_estimate.mean()  # TODO is mean correct here? Or should it be sum?
+
+                # --- Entropy loss ---
+                if entropy is None:
+                    entropy_loss = -th.mean(-current_log_probs)
+                else:
+                    entropy_loss = -th.mean(entropy)
+
+                # --- Total loss ---
+                loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
+
+                # --- Logging ---
+                pg_losses.append(policy_loss.item())
+                kl_losses.append(kl_loss.item())
+                entropy_losses.append(entropy_loss.item())
+                clip_fraction = float(abs(ratio.item() - 1.0) > clip_range)
+                clip_fractions.append(clip_fraction)
+
+                # --- Backprop ---
+                self.policy.optimizer.zero_grad()
+                loss.backward()
+                if self.max_grad_norm is not None:
+                    th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                self.policy.optimizer.step()
+
+            self._n_updates += 1
 
         return pg_losses, kl_losses, entropy_losses, clip_fractions, loss
 
