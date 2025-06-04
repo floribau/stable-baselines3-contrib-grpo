@@ -47,19 +47,21 @@ ppo_eval_callback = EvalCallback(
     verbose=0,
 )
 
+print("Starting GRPO training...")
 grpo_model = GRPO(
     "GroupPolicy",
     grpo_vec_env,
     verbose=1,
     group_size=16,
     # learning_rate=0.001,
-    kl_beta=0,
     n_epochs=10,
-    group_rollout_buffer_class=TimestepGroupBuffer,
+    kl_beta=0.02,
+    # group_rollout_buffer_class=TimestepGroupBuffer,
 )
 # grpo_model = GRPO("GroupPolicy", grpo_vec_env, verbose=1, group_size=16, learning_rate=0.001, kl_beta=0)
 grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS, callback=grpo_eval_callback)
 
+print("Starting PPO training...")
 ppo_model = PPO(
     "MlpPolicy",
     ppo_vec_env,

@@ -16,7 +16,7 @@ class Trajectory:
         self.gamma = gamma
         # IDEA use th.empty((0,), dtype=x) for better performance
         self.observations: list[np.ndarray] = []
-        self.actions: list[int] = []  # IDEA use float for continuous actions (but PPO doesnÄt support continuous AS)
+        self.actions: list[int] = []  # IDEA float for continuous actions (but PPO doesn't support continuous action spaces)
         self.rewards: list[float] = []
         self.log_probs: list[float] = []
         self.dones: list[bool] = []
@@ -47,7 +47,8 @@ class Trajectory:
 
         discounted_return = 0.0
         for t in reversed(range(rollout_len)):
-            discounted_return = float(self.rewards[t]) + self.gamma * discounted_return
+            assert isinstance(self.rewards[t], (float, int)), "Reward at timestep t should be a number."
+            discounted_return = self.rewards[t] + self.gamma * discounted_return
             returns_to_go[t] = discounted_return
 
         return returns_to_go
@@ -57,12 +58,12 @@ class Trajectory:
         TODO docstring
         """
         observations_np = np.stack(self.observations)
-        observations = th.as_tensor(observations_np, dtype=th.float32, device=self.device)
+        observations = th.from_numpy(observations_np).float().to(self.device)
 
         actions_np = np.array(self.actions)
-        actions = th.as_tensor(actions_np, dtype=th.float32, device=self.device)
+        actions = th.from_numpy(actions_np).to(self.device)
 
-        log_probs = th.as_tensor(self.log_probs, dtype=th.float32, device=self.device)
+        log_probs = th.tensor(self.log_probs, dtype=th.float32, device=self.device)
 
         return observations, actions, log_probs
 
