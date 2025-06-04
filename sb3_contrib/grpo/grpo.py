@@ -249,7 +249,7 @@ class GRPO(BaseAlgorithm):
                     log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
                 kl_ratios = log_probs_ref - current_log_probs.detach()
                 kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
-                kl_loss = -kl_div_estimate.mean()
+                kl_loss = kl_div_estimate.mean()
 
                 # Entropy loss
                 if entropy is None:
