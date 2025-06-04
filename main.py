@@ -1,4 +1,5 @@
 """Main module to run GRPO on CartPole-v1 environment."""
+import time
 from datetime import datetime
 import warnings
 
@@ -14,6 +15,9 @@ warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temp
 
 TRAINING_TIMESTEPS = 60_000
 RUN_TIMESTEPS = 100
+
+TRAIN_GRPO = True
+TRAIN_PPO = True
 
 RUN_GRPO = False
 RUN_PPO = False
@@ -51,32 +55,42 @@ ppo_eval_callback = EvalCallback(
     verbose=0,
 )
 
-grpo_model = GRPO(
-    "GroupPolicy",
-    grpo_vec_env,
-    verbose=1,
-    group_size=16,
-    # learning_rate=0.001,
-    n_epochs=10,
-    # kl_beta=0.02,
-    # group_rollout_buffer_class=TimestepGroupBuffer,
-)
-print("Starting GRPO training...")
-grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS, callback=grpo_eval_callback)
-# grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS, log_interval=1)
+if TRAIN_GRPO:
+    grpo_model = GRPO(
+        "GroupPolicy",
+        grpo_vec_env,
+        verbose=0,
+        group_size=16,
+        # learning_rate=0.001,
+        n_epochs=10,
+        # kl_beta=0.02,
+        # group_rollout_buffer_class=TimestepGroupBuffer,
+    )
+    print("Starting GRPO training...")
+    grpo_start_time = time.time()
+    grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS, callback=grpo_eval_callback)
+    # grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS, log_interval=1)
+    grpo_end_time = time.time()
+    print(f"GRPO training completed in {(grpo_end_time - grpo_start_time):.2f} seconds.")
 
-ppo_model = PPO(
-    "MlpPolicy",
-    ppo_vec_env,
-    verbose=1,
-    # learning_rate=0.001,
-    batch_size=16,
-    n_epochs=10,
-)
-print("Starting PPO training...")
-ppo_model.learn(total_timesteps=TRAINING_TIMESTEPS, callback=ppo_eval_callback)
+if TRAIN_PPO:
+    ppo_model = PPO(
+        "MlpPolicy",
+        ppo_vec_env,
+        verbose=0,
+        # learning_rate=0.001,
+        batch_size=16,
+        n_epochs=10,
+    )
+    print("Starting PPO training...")
+    ppo_start_time = time.time()
+    ppo_model.learn(total_timesteps=TRAINING_TIMESTEPS, callback=ppo_eval_callback)
+    ppo_end_time = time.time()
+    print(f"PPO training completed in {(ppo_end_time - ppo_start_time):.2f} seconds.")
+
 
 if RUN_GRPO:
+    assert TRAIN_GRPO, "GRPO model must be trained before running."
     obs = grpo_vec_env.reset()
     episode_rewards = [[] for _ in range(grpo_vec_env.num_envs)]
     all_episode_rewards = []
@@ -102,6 +116,7 @@ if RUN_GRPO:
         print("No episodes finished during GRPO eval.")
 
 if RUN_PPO:
+    assert TRAIN_PPO, "PPO model must be trained before running."
     obs = grpo_vec_env.reset()
     episode_rewards = [[] for _ in range(grpo_vec_env.num_envs)]
     all_episode_rewards = []
@@ -124,6 +139,7 @@ if RUN_PPO:
         print("No episodes finished during PPO eval.")
 
 if PLOT_GRPO_EVAL:
+    assert TRAIN_GRPO, "GRPO model must be trained before plotting evaluations."
     grpo_data = np.load(GRPO_EVAL_PATH + "evaluations.npz")
     grpo_timesteps = grpo_data["timesteps"]
     grpo_results = grpo_data["results"]
@@ -135,6 +151,7 @@ if PLOT_GRPO_EVAL:
     plt.fill_between(grpo_timesteps, grpo_mean_rewards - grpo_std_rewards, grpo_mean_rewards + grpo_std_rewards, alpha=0.3)
 
 if PLOT_PPO_EVAL:
+    assert TRAIN_PPO, "PPO model must be trained before plotting evaluations."
     ppo_data = np.load(PPO_EVAL_PATH + "evaluations.npz")
     ppo_timesteps = ppo_data["timesteps"]
     ppo_results = ppo_data["results"]
