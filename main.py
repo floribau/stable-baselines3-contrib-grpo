@@ -23,6 +23,10 @@ EVAL_FREQ = 1000
 GRPO_EVAL_PATH = "./eval_logs/grpo/"
 PPO_EVAL_PATH = "./eval_logs/ppo/"
 
+PLOT_GRPO_EVAL = True
+PLOT_PPO_EVAL = True
+SAVE_EVAL_PLOT = True
+
 grpo_vec_env = make_vec_env("CartPole-v1", n_envs=1)
 ppo_vec_env = make_vec_env("CartPole-v1", n_envs=1)
 grpo_eval_env = make_vec_env("CartPole-v1", n_envs=1)
@@ -47,7 +51,6 @@ ppo_eval_callback = EvalCallback(
     verbose=0,
 )
 
-print("Starting GRPO training...")
 grpo_model = GRPO(
     "GroupPolicy",
     grpo_vec_env,
@@ -55,13 +58,13 @@ grpo_model = GRPO(
     group_size=16,
     # learning_rate=0.001,
     n_epochs=10,
-    kl_beta=0.02,
+    # kl_beta=0.02,
     # group_rollout_buffer_class=TimestepGroupBuffer,
 )
-# grpo_model = GRPO("GroupPolicy", grpo_vec_env, verbose=1, group_size=16, learning_rate=0.001, kl_beta=0)
+print("Starting GRPO training...")
 grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS, callback=grpo_eval_callback)
+# grpo_model.learn(total_timesteps=TRAINING_TIMESTEPS, log_interval=1)
 
-print("Starting PPO training...")
 ppo_model = PPO(
     "MlpPolicy",
     ppo_vec_env,
@@ -70,6 +73,7 @@ ppo_model = PPO(
     batch_size=16,
     n_epochs=10,
 )
+print("Starting PPO training...")
 ppo_model.learn(total_timesteps=TRAINING_TIMESTEPS, callback=ppo_eval_callback)
 
 if RUN_GRPO:
@@ -119,30 +123,36 @@ if RUN_PPO:
     else:
         print("No episodes finished during PPO eval.")
 
-grpo_data = np.load(GRPO_EVAL_PATH + "evaluations.npz")
-grpo_timesteps = grpo_data["timesteps"]
-grpo_results = grpo_data["results"]
+if PLOT_GRPO_EVAL:
+    grpo_data = np.load(GRPO_EVAL_PATH + "evaluations.npz")
+    grpo_timesteps = grpo_data["timesteps"]
+    grpo_results = grpo_data["results"]
 
-grpo_mean_rewards = grpo_results.mean(axis=1)
-grpo_std_rewards = grpo_results.std(axis=1)
+    grpo_mean_rewards = grpo_results.mean(axis=1)
+    grpo_std_rewards = grpo_results.std(axis=1)
 
-ppo_data = np.load(PPO_EVAL_PATH + "evaluations.npz")
-ppo_timesteps = ppo_data["timesteps"]
-ppo_results = ppo_data["results"]
+    plt.plot(grpo_timesteps, grpo_mean_rewards, label="GRPO Mean Evaluation Reward")
+    plt.fill_between(grpo_timesteps, grpo_mean_rewards - grpo_std_rewards, grpo_mean_rewards + grpo_std_rewards, alpha=0.3)
 
-ppo_mean_rewards = ppo_results.mean(axis=1)
-ppo_std_rewards = ppo_results.std(axis=1)
+if PLOT_PPO_EVAL:
+    ppo_data = np.load(PPO_EVAL_PATH + "evaluations.npz")
+    ppo_timesteps = ppo_data["timesteps"]
+    ppo_results = ppo_data["results"]
 
-plt.plot(grpo_timesteps, grpo_mean_rewards, label="GRPO Mean Evaluation Reward")
-plt.fill_between(grpo_timesteps, grpo_mean_rewards - grpo_std_rewards, grpo_mean_rewards + grpo_std_rewards, alpha=0.3)
-plt.plot(ppo_timesteps, ppo_mean_rewards, label="PPO Mean Evaluation Reward")
-plt.fill_between(ppo_timesteps, ppo_mean_rewards - ppo_std_rewards, ppo_mean_rewards + ppo_std_rewards, alpha=0.3)
-plt.xlabel("Timesteps")
-plt.ylabel("Evaluation Reward")
-plt.title("Evaluation Performance Over Time")
-plt.legend()
-plt.grid()
-plt.tight_layout()
-timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-plt.savefig(f"./eval_images/eval_performance_{timestamp}.png")
-plt.show()
+    ppo_mean_rewards = ppo_results.mean(axis=1)
+    ppo_std_rewards = ppo_results.std(axis=1)
+
+    plt.plot(ppo_timesteps, ppo_mean_rewards, label="PPO Mean Evaluation Reward")
+    plt.fill_between(ppo_timesteps, ppo_mean_rewards - ppo_std_rewards, ppo_mean_rewards + ppo_std_rewards, alpha=0.3)
+
+if PLOT_GRPO_EVAL or PLOT_PPO_EVAL:
+    plt.xlabel("Timesteps")
+    plt.ylabel("Evaluation Reward")
+    plt.title("Evaluation Performance Over Time")
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+    if SAVE_EVAL_PLOT:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        plt.savefig(f"./eval_images/eval_performance_{timestamp}.png")
+    plt.show()
