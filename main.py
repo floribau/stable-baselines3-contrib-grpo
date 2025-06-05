@@ -16,10 +16,10 @@ warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temp
 N_TRAINING_TIMESTEPS = 200_000
 N_EVAL_EPISODES = 5
 EVAL_FREQ = 1000
-EVAL_PATH = "./eval_logs/"
+EVAL_PATH = "./eval/eval_logs/"
 EVAL_PLOT_DISPLAY_STEPS = 200_000  # needs to be <= N_TRAINING_TIMESTEPS
 EVAL_PLOT_CONFIDENCE_OPAQUENESS = 0.1
-SAVE_EVAL_PLOT = False
+SAVE_EVAL_PLOT = True
 
 TRAIN_PROCESS_RLOO =False
 TRAIN_OUTCOME_RLOO = False
@@ -40,7 +40,7 @@ PLOT_OUTCOME_RLOO = True
 PLOT_PROCESS_RLOO_WITH_KL = False
 PLOT_OUTCOME_RLOO_WITH_KL = True
 PLOT_PROCESS_RLOO_WITH_IS = False
-PLOT_OUTCOME_RLOO_WITH_IS = False
+PLOT_OUTCOME_RLOO_WITH_IS = True
 PLOT_PROCESS_RLOO_WITH_KL_IS = False
 PLOT_OUTCOME_RLOO_WITH_KL_IS = True
 PLOT_PROCESS_RLOO_WITH_CLIPPING = False
@@ -615,5 +615,5 @@ plt.grid()
 plt.tight_layout()
 if SAVE_EVAL_PLOT:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    plt.savefig(f"./eval_images/eval_performance_{timestamp}.png")
+    plt.savefig(f"./eval/eval_images/eval_performance_{timestamp}.png")
 plt.show()

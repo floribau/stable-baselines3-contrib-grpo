@@ -229,6 +229,12 @@ class GRPO(BaseAlgorithm):
 
             for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
                 obs, actions, old_log_probs = traj.to_tensor()
+                # TODO change this for RLOO (without IS) -> sample new traj from new policy
+
+                if not self.use_importance_sampling:
+                    # Sample new trajectory, this also needs the initial env state
+                    pass
+
                 old_log_probs = old_log_probs.detach()
 
                 if len(obs) == 0:
@@ -347,7 +353,7 @@ class GRPO(BaseAlgorithm):
 
                 # --- Backprop ---
                 self.policy.optimizer.zero_grad()
-                loss.backward()
+                loss.backward()  # computes gradients from the loss w.r.t policy parameters
                 if self.max_grad_norm is not None:
                     th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                 self.policy.optimizer.step()
