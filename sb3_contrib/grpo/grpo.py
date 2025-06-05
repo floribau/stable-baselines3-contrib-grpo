@@ -48,6 +48,7 @@ class GRPO(BaseAlgorithm):
         n_epochs: int = 10,
         gamma: float = 1,
         clip_range: float | Schedule = 0.2,
+        use_importance_sampling: bool = True,
         scale_rewards: bool = False,
         kl_beta: float = 0.01,
         ent_coef: float = 0.005,
@@ -85,6 +86,7 @@ class GRPO(BaseAlgorithm):
         self.gamma = gamma
         self.n_epochs = n_epochs
         self.clip_range = clip_range
+        self.use_importance_sampling = use_importance_sampling
         self.scale_rewards = scale_rewards
         self.kl_beta = kl_beta
         self.ent_coef = ent_coef
@@ -241,7 +243,11 @@ class GRPO(BaseAlgorithm):
                 advantage_tensor = advantages[traj_idx].detach()
 
                 # Surrogate loss
-                ratios = th.exp(current_log_probs - old_log_probs)
+                ratios = (
+                    th.exp(current_log_probs - old_log_probs)
+                    if self.use_importance_sampling
+                    else th.ones_like(current_log_probs, device=self.device)
+                )
                 surr1 = ratios * advantage_tensor
                 surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantage_tensor
                 policy_loss = -th.min(surr1, surr2).mean()
@@ -306,7 +312,11 @@ class GRPO(BaseAlgorithm):
                 current_log_probs_sum = current_log_probs.sum()  # sum of log probs = log of product of probs
                 old_log_probs_sum = old_log_probs.sum()
 
-                ratio = th.exp(current_log_probs_sum - old_log_probs_sum)
+                ratio = (
+                    th.exp(current_log_probs_sum - old_log_probs_sum)
+                    if self.use_importance_sampling
+                    else th.ones_like(current_log_probs_sum, device=self.device)
+                )
                 surr1 = ratio * advantage
                 surr2 = th.clamp(ratio, 1.0 - clip_range, 1.0 + clip_range) * advantage
                 policy_loss = -th.min(surr1, surr2)  # scalar tensor

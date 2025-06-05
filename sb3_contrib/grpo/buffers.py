@@ -194,6 +194,7 @@ class OutcomeGroupBuffer(GroupBuffer):
     """
     TODO docstring how advantage is calculated (reward sum per trajectory, outcome supervision)
     """
+
     def __init__(
         self,
         buffer_size: int,
