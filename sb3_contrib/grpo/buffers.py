@@ -1,11 +1,24 @@
 """Module providing buffer class implementations for GRPO."""
 
+from enum import Enum
+
 import numpy as np
 import torch as th
 from gymnasium import spaces
 from stable_baselines3.common.buffers import BaseBuffer
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import VecNormalize
+
+
+class SupervisionType(Enum):
+    """Enum for the type of supervision used in GRPO."""
+
+    OUTCOME = 0
+    PROCESS = 1
+
+    def if_outcome_supervision(self) -> bool:
+        """Returns True if the supervision type is outcome supervision."""
+        return self == SupervisionType.OUTCOME
 
 
 class Trajectory:
@@ -76,6 +89,7 @@ class GroupBuffer(BaseBuffer):
 
     trajectories: list[Trajectory]
     returns: np.ndarray | None
+    supervision_type: SupervisionType
 
     def __init__(
         self,
@@ -89,6 +103,7 @@ class GroupBuffer(BaseBuffer):
         super().__init__(buffer_size, observation_space, action_space, device, n_envs)
         self.reset()
         self.scale_rewards = scale_rewards
+        self.supervision_type = SupervisionType.PROCESS
 
     def add(self, traj: Trajectory) -> int:  # pylint: disable=arguments-differ
         """
@@ -179,6 +194,17 @@ class OutcomeGroupBuffer(GroupBuffer):
     """
     TODO docstring how advantage is calculated (reward sum per trajectory, outcome supervision)
     """
+    def __init__(
+        self,
+        buffer_size: int,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        scale_rewards: bool = False,
+        device: th.device | str = "auto",
+        n_envs: int = 1,
+    ):
+        super().__init__(buffer_size, observation_space, action_space, scale_rewards, device, n_envs)
+        self.supervision_type = SupervisionType.OUTCOME
 
     def _compute_returns(self):
         if self.returns is None:
@@ -190,5 +216,5 @@ class OutcomeGroupBuffer(GroupBuffer):
 
         advantages = self.returns - mean_return
         if self.scale_rewards:
-            advantages /= (std_return + 1e-8)  # avoid division by zero
+            advantages /= std_return + 1e-8  # avoid division by zero
         return advantages

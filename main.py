@@ -9,15 +9,15 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.ppo import PPO
 from sb3_contrib.grpo.grpo import GRPO
-from sb3_contrib.grpo.buffers import TimestepGroupBuffer
+from sb3_contrib.grpo.buffers import TimestepGroupBuffer, OutcomeGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-TRAINING_TIMESTEPS = 60_000
+TRAINING_TIMESTEPS = 200_000
 RUN_TIMESTEPS = 100
 
 TRAIN_GRPO = True
-TRAIN_PPO = True
+TRAIN_PPO = False
 
 RUN_GRPO = False
 RUN_PPO = False
@@ -28,7 +28,7 @@ GRPO_EVAL_PATH = "./eval_logs/grpo/"
 PPO_EVAL_PATH = "./eval_logs/ppo/"
 
 PLOT_GRPO_EVAL = True
-PLOT_PPO_EVAL = True
+PLOT_PPO_EVAL = False
 SAVE_EVAL_PLOT = True
 
 grpo_vec_env = make_vec_env("CartPole-v1", n_envs=1)
@@ -59,12 +59,12 @@ if TRAIN_GRPO:
     grpo_model = GRPO(
         "GroupPolicy",
         grpo_vec_env,
-        verbose=0,
+        verbose=1,
         group_size=16,
         # learning_rate=0.001,
         n_epochs=10,
         # kl_beta=0.02,
-        # group_rollout_buffer_class=TimestepGroupBuffer,
+        group_rollout_buffer_class=OutcomeGroupBuffer,
     )
     print("Starting GRPO training...")
     grpo_start_time = time.time()

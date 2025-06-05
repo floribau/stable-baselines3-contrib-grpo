@@ -201,7 +201,10 @@ class GRPO(BaseAlgorithm):
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)
 
-        pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_process_supervision(clip_range)
+        if self.group_rollout_buffer.supervision_type.if_outcome_supervision():
+            pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_outcome_supervision(clip_range)
+        else:
+            pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_process_supervision(clip_range)
 
         # Logs
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
@@ -235,11 +238,10 @@ class GRPO(BaseAlgorithm):
 
                 current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
 
-                ratios = th.exp(current_log_probs - old_log_probs)
-
                 advantage_tensor = advantages[traj_idx].detach()
 
                 # Surrogate loss
+                ratios = th.exp(current_log_probs - old_log_probs)
                 surr1 = ratios * advantage_tensor
                 surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantage_tensor
                 policy_loss = -th.min(surr1, surr2).mean()
@@ -247,9 +249,9 @@ class GRPO(BaseAlgorithm):
                 # KL divergence penalty
                 with th.no_grad():
                     log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
-                    kl_ratios = log_probs_ref - current_log_probs.detach()
-                    kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
-                    kl_loss = kl_div_estimate.mean()
+                kl_ratios = log_probs_ref - current_log_probs
+                kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
+                kl_loss = kl_div_estimate.mean()
 
                 # Entropy loss
                 if entropy is None:
@@ -278,10 +280,10 @@ class GRPO(BaseAlgorithm):
 
         return pg_losses, kl_losses, entropy_losses, clip_fractions, loss
 
-    def _train_outcome_supvervision(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
+    def _train_outcome_supervision(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
         pg_losses, kl_losses, entropy_losses, clip_fractions = [], [], [], []
 
-        advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories,)
+        advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories, 1)
 
         for _ in range(self.n_epochs):
 
@@ -298,30 +300,30 @@ class GRPO(BaseAlgorithm):
 
                 current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
 
-                # --- Compute scalar advantage for entire trajectory ---
-                advantage = th.tensor(advantages[traj_idx], dtype=th.float32, device=self.device)  # NOTE should be scalar
+                advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)  # scalar tensor
 
                 # --- Policy gradient loss ---
-                current_log_prob_sum = current_log_probs.sum()  # sum of log probs = log of product of probs
-                old_log_prob_sum = old_log_probs.sum()
+                current_log_probs_sum = current_log_probs.sum()  # sum of log probs = log of product of probs
+                old_log_probs_sum = old_log_probs.sum()
 
-                ratio = th.exp(current_log_prob_sum - old_log_prob_sum)
+                ratio = th.exp(current_log_probs_sum - old_log_probs_sum)
                 surr1 = ratio * advantage
                 surr2 = th.clamp(ratio, 1.0 - clip_range, 1.0 + clip_range) * advantage
-                policy_loss = -th.min(surr1, surr2)  # correct not to use mean() here, since advantage is a scalar
+                policy_loss = -th.min(surr1, surr2)  # scalar tensor
 
                 # --- KL loss ---
                 with th.no_grad():
                     log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
-                    kl_ratios = log_probs_ref - current_log_probs.detach()
-                    kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
-                    kl_loss = kl_div_estimate.mean()  # TODO is mean correct here? Or should it be sum?
+                    log_probs_ref_sum = log_probs_ref.sum()
+                kl_ratio = log_probs_ref_sum - current_log_probs_sum  # scalar tensor
+                kl_div_estimate = th.exp(kl_ratio) - kl_ratio - 1
+                kl_loss = kl_div_estimate
 
                 # --- Entropy loss ---
                 if entropy is None:
-                    entropy_loss = -th.mean(-current_log_probs)
+                    entropy_loss = current_log_probs_sum
                 else:
-                    entropy_loss = -th.mean(entropy)
+                    entropy_loss = -entropy.sum()
 
                 # --- Total loss ---
                 loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
