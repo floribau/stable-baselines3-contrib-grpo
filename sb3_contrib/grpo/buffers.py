@@ -6,6 +6,7 @@ import numpy as np
 import torch as th
 from gymnasium import spaces
 from stable_baselines3.common.buffers import BaseBuffer
+from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import VecNormalize
 
@@ -24,15 +25,34 @@ class SupervisionType(Enum):
 class Trajectory:
     """Class containing one trajectory of RL rollout steps."""
 
-    def __init__(self, device: th.device | str = "auto", gamma: float = 1):
+    observations: list[np.ndarray]
+    actions: list[int]  # IDEA float for continuous actions (but PPO doesn't support continuous action spaces either)
+    rewards: list[float]
+    log_probs: list[float]
+    dones: list[bool]
+
+    initial_env: GymEnv
+    initial_obs: np.ndarray
+
+    def __init__(
+        self,
+        device: th.device | str = "auto",
+        gamma: float = 1,
+        initial_env: GymEnv | None = None,  # needs to be set if use_importance_sampling is False
+        initial_obs: np.ndarray | None = None,  # needs to be set if use_importance_sampling is False
+    ):
         self.device = get_device(device)
         self.gamma = gamma
+
+        self.initial_env = initial_env
+        self.initial_obs = initial_obs
+
         # IDEA use th.empty((0,), dtype=x) for better performance
-        self.observations: list[np.ndarray] = []
-        self.actions: list[int] = []  # IDEA float for continuous actions (but PPO doesn't support continuous action spaces)
-        self.rewards: list[float] = []
-        self.log_probs: list[float] = []
-        self.dones: list[bool] = []
+        self.observations = []
+        self.actions = []
+        self.rewards = []
+        self.log_probs = []
+        self.dones = []
 
     def add(self, obs: np.ndarray, action: int, reward: float, log_prob: float, done: bool):
         """Adds a single step to the trajectory.

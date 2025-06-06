@@ -162,7 +162,11 @@ class GRPO(BaseAlgorithm):
             # TODO is there a better option than deepcopying?
             env = deepcopy(initial_env)  # copying to start rollouts from the same state
             last_obs = initial_obs  # TODO use self._last_obs instead
-            traj = Trajectory()
+
+            traj_initial_env = deepcopy(initial_env) if not self.use_importance_sampling else None
+            traj_initial_obs = initial_obs if not self.use_importance_sampling else None
+            traj = Trajectory(device=self.device, gamma=self.gamma, initial_env=traj_initial_env, initial_obs=traj_initial_obs)
+
             dones = False
 
             callback.on_rollout_start()
