@@ -14,14 +14,14 @@ from sb3_contrib.grpo.buffers import OutcomeGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-N_TRAINING_TIMESTEPS = 120_000
+N_TRAINING_TIMESTEPS = 100_000
 
 N_EVAL_EPISODES = 5
 EVAL_FREQ = 1000
 EVAL_PATH = "./eval/eval_logs/"
 
 PLOT_EVAL_RESULTS = True  # Set to True to plot evaluation results after training
-EVAL_PLOT_DISPLAY_STEPS = 120_000  # needs to be <= N_TRAINING_TIMESTEPS
+EVAL_PLOT_DISPLAY_STEPS = 100_000  # needs to be <= N_TRAINING_TIMESTEPS
 EVAL_PLOT_OPAQUENESS_ALPHA = 0.1
 SAVE_EVAL_PLOT = False
 
@@ -35,7 +35,7 @@ TRAIN_PROCESS_RLOO_WITH_IS = False
 TRAIN_OUTCOME_RLOO_WITH_IS = False
 TRAIN_PROCESS_RLOO_WITH_CLIPPING = False
 TRAIN_OUTCOME_RLOO_WITH_CLIPPING = False
-TRAIN_PROCESS_GRPO = True
+TRAIN_PROCESS_GRPO = False
 TRAIN_OUTCOME_GRPO = False
 TRAIN_PPO = False
 
@@ -49,9 +49,11 @@ PLOT_PROCESS_RLOO_WITH_KL_IS = False
 PLOT_OUTCOME_RLOO_WITH_KL_IS = False
 PLOT_PROCESS_RLOO_WITH_CLIPPING = False
 PLOT_OUTCOME_RLOO_WITH_CLIPPING = False
-PLOT_PROCESS_GRPO = True
+PLOT_PROCESS_GRPO = False
 PLOT_OUTCOME_GRPO = False
 PLOT_PPO = False
+
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 # --- Training and Evaluation ---
 if TRAIN_PROCESS_RLOO:
@@ -389,8 +391,7 @@ if TRAIN_PROCESS_GRPO:
 
     pr.disable()
     print("Process GRPO profiling completed. Saving profiling data...")
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    pr.dump_stats(f"./eval/profiling_outputs/process_grpo_profile_{timestamp}.prof")
+    # pr.dump_stats(f"./eval/profiling_outputs/process_grpo_profile_{timestamp}.prof")
 
     end_time = time.time()
     print(f"Process GRPO training completed in {(end_time - start_time):.2f} seconds.")
@@ -430,8 +431,7 @@ if TRAIN_OUTCOME_GRPO:
 
     pr.disable()
     print("Outcome GRPO profiling completed. Saving profiling data...")
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    pr.dump_stats(f"./eval/profiling_outputs/outcome_grpo_profile_{timestamp}.prof")
+    # pr.dump_stats(f"./eval/profiling_outputs/outcome_grpo_profile_{timestamp}.prof")
 
     end_time = time.time()
     print(f"Outcome GRPO training completed in {(end_time - start_time):.2f} seconds.")
@@ -454,9 +454,7 @@ if TRAIN_PPO:
         "MlpPolicy",
         ppo_vec_env,
         verbose=0,
-        batch_size=16,
         n_epochs=10,
-        n_steps=512,  # Adjusted for fair comparison with GRPO
     )
 
     print("Starting PPO training...")
@@ -466,13 +464,12 @@ if TRAIN_PPO:
     print("Starting PPO profiling...")
     pr.enable()  # Start profiling
 
-    ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=ppo_eval_callback)
-    # ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+    # ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=ppo_eval_callback)
+    ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
 
     pr.disable()
     print("PPO profiling completed. Saving profiling data...")
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    pr.dump_stats(f"./eval/profiling_outputs/ppo_profile_{timestamp}.prof")
+    # pr.dump_stats(f"./eval/profiling_outputs/ppo_profile_{timestamp}.prof")
 
     end_time = time.time()
     print(f"PPO training completed in {(end_time - start_time):.2f} seconds.")

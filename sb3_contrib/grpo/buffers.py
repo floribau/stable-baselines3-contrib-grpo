@@ -203,6 +203,7 @@ class TimestepGroupBuffer(GroupBuffer):
 
     BUG this version doesn't work because the update signal is too small.
     """
+
     def _maybe_compute_returns(self):
         if self.returns is None:
             self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
