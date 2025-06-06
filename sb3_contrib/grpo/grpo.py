@@ -452,7 +452,7 @@ class GRPO(BaseAlgorithm):
         assert total_timesteps >= self.group_size, f"At least {self.group_size} must be collected because of group size."
 
         iteration = 0
-        while self.num_timesteps < total_timesteps:  # TODO check how num_timesteps is updated compared to PPO
+        while self.num_timesteps < total_timesteps:
             self.group_rollout_buffer.reset()  # Reset the group buffer before collecting new rollouts
             self.collect_group_rollouts(env=self.env, callback=callback, group_size=self.group_size)
 
@@ -469,7 +469,6 @@ class GRPO(BaseAlgorithm):
 
             self.policy_ref = self.policy.get_frozen_deepcopy()  # set reference policy to the current policy
             self.train()  # Update the policy params based on the collected group rollouts
-            # NOTE GRPO has 26 calls of train() vs 196 calls in PPO, is this correct?
 
             iteration += 1
 
