@@ -35,7 +35,7 @@ TRAIN_PROCESS_RLOO_WITH_IS = False
 TRAIN_OUTCOME_RLOO_WITH_IS = False
 TRAIN_PROCESS_RLOO_WITH_CLIPPING = False
 TRAIN_OUTCOME_RLOO_WITH_CLIPPING = False
-TRAIN_PROCESS_GRPO = True
+TRAIN_PROCESS_GRPO = False
 TRAIN_OUTCOME_GRPO = False
 TRAIN_PPO = True
 
@@ -456,7 +456,7 @@ if TRAIN_PPO:
         verbose=0,
         batch_size=16,
         n_epochs=10,
-        # n_steps=512,  # Adjusted for fair comparison with GRPO
+        n_steps=512,  # Adjusted for fair comparison with GRPO
     )
 
     print("Starting PPO training...")

@@ -88,7 +88,7 @@ class Trajectory:
 
     def to_tensor(self) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
-        TODO docstring
+        Returns the observations, actions, and log probabilities as tensors.
         """
         observations_np = np.stack(self.observations)
         observations = th.from_numpy(observations_np).float().to(self.device)
@@ -104,11 +104,12 @@ class Trajectory:
 class GroupBuffer(BaseBuffer):
     """
     Buffer class containing a group of trajectories for a single GRPO update.
-    TODO write docstring for how advantage is calculated (all returns-to-go)
+    The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep relativ
+    to the mean return-to-go of all timesteps in the group.
     """
 
     trajectories: list[Trajectory]
-    returns: np.ndarray | None
+    returns: list[th.Tensor] | None
     supervision_type: SupervisionType
 
     def __init__(
@@ -135,7 +136,7 @@ class GroupBuffer(BaseBuffer):
             self.trajectories.append(traj)
             if len(self.trajectories) >= self.buffer_size:
                 self.full = True
-                self._compute_returns()
+                self._maybe_compute_returns()
             return pos
         return -1
 
@@ -144,7 +145,7 @@ class GroupBuffer(BaseBuffer):
         self.trajectories = []
         self.returns = None
 
-    def _compute_returns(self):
+    def _maybe_compute_returns(self):
         """
         Fills self.returns if not set yet.
         Return at index t in a tensor i corresponds to the return for timestep t in trajectory i.
@@ -152,17 +153,32 @@ class GroupBuffer(BaseBuffer):
         if self.returns is None:
             self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
 
+    def get_return_mean(self) -> th.Tensor:
+        """
+        Returns the mean of all returns-to-go in the group.
+        """
+        self._maybe_compute_returns()
+        all_returns_to_go = th.cat(self.returns)
+        return all_returns_to_go.mean()
+
+    def get_return_std(self) -> th.Tensor:
+        """
+        Returns the standard deviation of all returns-to-go in the group.
+        """
+        self._maybe_compute_returns()
+        all_returns_to_go = th.cat(self.returns)
+        return all_returns_to_go.std()
+
     def get_advantages(self) -> list[th.Tensor]:
         """
         Returns a list of advantage tensors relative to the group.
         Advantage at index t in a tensor i corresponds to the advantage for timestep t in trajectory i.
         """
-        assert len(self.trajectories) > 0
-        self._compute_returns()
+        assert len(self.trajectories) > 0, "Cannot compute advantages: No trajectories in the buffer."
+        self._maybe_compute_returns()
 
-        all_returns_to_go = th.cat(self.returns)
-        mean_return = all_returns_to_go.mean()
-        std_return = all_returns_to_go.std()
+        mean_return = self.get_return_mean()
+        std_return = self.get_return_std()
 
         advantages = [r - mean_return for r in self.returns]
         if self.scale_rewards:
@@ -181,19 +197,36 @@ class GroupBuffer(BaseBuffer):
 
 class TimestepGroupBuffer(GroupBuffer):
     """
-    TODO docstring how advantage is calculated (returns-to-go per timestep)
-    """
+    Buffer class containing a group of trajectories for a single GRPO update.
+    The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep t relativ
+    to the mean return-to-go of all trajectories at timestep t in the group.
 
-    def _compute_returns(self):
+    BUG this version doesn't work because the update signal is too small.
+    """
+    def _maybe_compute_returns(self):
         if self.returns is None:
             self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
 
+    def get_return_mean(self) -> th.Tensor:
+        """
+        Returns a tensor of all mean returns-to-go at timestept t for t = 1, ..., T.
+        """
+        # TODO implement
+        raise NotImplementedError
+
+    def get_return_std(self) -> th.Tensor:
+        """
+        Returns a tensor of all standard deviations of returns-to-go at timestept t for t = 1, ..., T.
+        """
+        # TODO implement
+        raise NotImplementedError
+
     def get_advantages(self) -> list[th.Tensor]:
         assert len(self.trajectories) > 0
-        self._compute_returns()
+        self._maybe_compute_returns()
 
-        max_trajectory_length = max(len(traj.rewards) for traj in self.trajectories)
-        advantages = [th.empty(len(traj_returns)) for traj_returns in self.returns]  # placeholder for advantages
+        max_trajectory_length = max(traj_returns.size(0) for traj_returns in self.returns)
+        advantages = [th.empty(traj_returns.size(0)) for traj_returns in self.returns]  # placeholder for advantages
 
         for t in range(max_trajectory_length):
             timestep_returns = np.array([traj_returns[t] if len(traj_returns) > t else 0 for traj_returns in self.returns])
@@ -212,7 +245,10 @@ class TimestepGroupBuffer(GroupBuffer):
 
 class OutcomeGroupBuffer(GroupBuffer):
     """
-    TODO docstring how advantage is calculated (reward sum per trajectory, outcome supervision)
+    Buffer class containing a group of trajectories for a single GRPO update.
+    The buffer implements outcome supervision, where the advantage is computed as the trajectory reward relativ
+    to the mean trajectory reward of all trajectories in the group.
+    The trajectory reward is the sum of all rewards in the trajectory.
     """
 
     def __init__(
@@ -227,9 +263,23 @@ class OutcomeGroupBuffer(GroupBuffer):
         super().__init__(buffer_size, observation_space, action_space, scale_rewards, device, n_envs)
         self.supervision_type = SupervisionType.OUTCOME
 
-    def _compute_returns(self):
+    def _maybe_compute_returns(self):
         if self.returns is None:
             self.returns = np.array([sum(traj.rewards) for traj in self.trajectories])
+
+    def get_return_mean(self) -> th.Tensor:
+        """
+        Returns the mean of all trajectory returns in the group.
+        """
+        # TODO implement
+        raise NotImplementedError
+
+    def get_return_std(self) -> th.Tensor:
+        """
+        Returns the standard deviation of all trajectory returns in the group.
+        """
+        # TODO implement
+        raise NotImplementedError
 
     def get_advantages(self) -> np.ndarray:
         mean_return = np.mean(self.returns)
