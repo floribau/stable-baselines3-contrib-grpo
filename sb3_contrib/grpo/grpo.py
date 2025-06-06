@@ -190,17 +190,18 @@ class GRPO(BaseAlgorithm):
     def collect_group_rollouts(self, env: VecEnv, callback: BaseCallback, group_size: int):
         """Collect a group of rollouts from the current policy and returns it as a group buffer."""
         assert self.group_rollout_buffer is not None, "Group rollout buffer must be initialized before collecting rollouts."
+        assert self._last_obs is not None, "No previous observation was provided."
 
         # Switch to eval mode (this affects batch norm / dropout)
         self.policy.set_training_mode(False)
 
-        initial_obs = env.reset()
+        initial_obs = self._last_obs  # store initial observation to start rollouts from the same state
         initial_env = deepcopy(env)
 
         for _ in range(group_size):
             # TODO is there a better option than deepcopying?
             env = deepcopy(initial_env)  # copying to start rollouts from the same state
-            last_obs = initial_obs  # TODO use self._last_obs instead
+            self._last_obs = initial_obs
 
             traj_initial_env = deepcopy(initial_env) if not self.use_importance_sampling else None
             traj_initial_obs = initial_obs if not self.use_importance_sampling else None
@@ -212,7 +213,7 @@ class GRPO(BaseAlgorithm):
 
             while not dones:
                 with th.no_grad():
-                    obs_tensor = obs_as_tensor(last_obs, self.device)
+                    obs_tensor = obs_as_tensor(self._last_obs, self.device)
                     actions, log_probs = self.policy(obs_tensor)  # plural naming convention for multiple parallel envs
                 actions = actions.cpu().numpy()  # convert tensor to numpy array since env.step requires numpy array as input
                 next_obs, rewards, dones, infos = env.step(actions)
@@ -229,8 +230,8 @@ class GRPO(BaseAlgorithm):
                     actions = actions.reshape(-1, 1)
 
                 # HACK the float cast is only a quickfix, more work needs to be done for multiple parallel envs
-                traj.add(obs=last_obs, action=actions, reward=float(rewards), log_prob=log_probs, done=dones)
-                last_obs = next_obs
+                traj.add(obs=self._last_obs, action=actions, reward=float(rewards), log_prob=log_probs, done=dones)
+                self._last_obs = next_obs
 
             self.group_rollout_buffer.add(traj)
 
@@ -473,42 +474,3 @@ class GRPO(BaseAlgorithm):
             iteration += 1
 
         return self
-
-    def _setup_learn(
-        self,
-        # total_timesteps: int,
-        total_timesteps: int,
-        callback: MaybeCallback = None,
-        reset_num_timesteps: bool = True,
-        tb_log_name: str = "run",
-        progress_bar: bool = False,
-    ):
-        self.start_time = time.time_ns()
-
-        if self.ep_info_buffer is None or reset_num_timesteps:
-            # Initialize buffers if they don't exist, or reinitialize if resetting counters
-            self.ep_info_buffer = deque(maxlen=self._stats_window_size)
-            self.ep_success_buffer = deque(maxlen=self._stats_window_size)
-
-        if self.action_noise is not None:
-            self.action_noise.reset()
-
-        if reset_num_timesteps:
-            self.num_timesteps = 0
-            self._episode_num = 0  # TODO check what this does
-        else:
-            # Make sure training trajectories are ahead of the internal counter
-            total_timesteps += self.num_timesteps
-        self._total_timesteps = total_timesteps
-        self._num_timesteps_at_start = self.num_timesteps
-
-        # TODO avoid resetting the env when calling .learn() consecutive times
-
-        # Configure logger's outputs if no logger was passed
-        if not self._custom_logger:
-            self._logger = utils.configure_logger(self.verbose, self.tensorboard_log, tb_log_name, reset_num_timesteps)
-
-        # Create eval callback if needed
-        callback = self._init_callback(callback, progress_bar)
-
-        return total_timesteps, callback

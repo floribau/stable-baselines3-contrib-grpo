@@ -14,18 +14,18 @@ from sb3_contrib.grpo.buffers import OutcomeGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-N_TRAINING_TIMESTEPS = 100_000
+N_TRAINING_TIMESTEPS = 120_000
 
 N_EVAL_EPISODES = 5
 EVAL_FREQ = 1000
 EVAL_PATH = "./eval/eval_logs/"
 
-PLOT_EVAL_RESULTS = False  # Set to True to plot evaluation results after training
-EVAL_PLOT_DISPLAY_STEPS = 100_000  # needs to be <= N_TRAINING_TIMESTEPS
+PLOT_EVAL_RESULTS = True  # Set to True to plot evaluation results after training
+EVAL_PLOT_DISPLAY_STEPS = 120_000  # needs to be <= N_TRAINING_TIMESTEPS
 EVAL_PLOT_OPAQUENESS_ALPHA = 0.1
-SAVE_EVAL_PLOT = True
+SAVE_EVAL_PLOT = False
 
-TRAIN_PROCESS_RLOO =False
+TRAIN_PROCESS_RLOO = False
 TRAIN_OUTCOME_RLOO = False
 TRAIN_PROCESS_RLOO_WITH_KL = False
 TRAIN_OUTCOME_RLOO_WITH_KL = False
@@ -35,22 +35,22 @@ TRAIN_PROCESS_RLOO_WITH_IS = False
 TRAIN_OUTCOME_RLOO_WITH_IS = False
 TRAIN_PROCESS_RLOO_WITH_CLIPPING = False
 TRAIN_OUTCOME_RLOO_WITH_CLIPPING = False
-TRAIN_PROCESS_GRPO = False
+TRAIN_PROCESS_GRPO = True
 TRAIN_OUTCOME_GRPO = False
-TRAIN_PPO = True
+TRAIN_PPO = False
 
 PLOT_PROCESS_RLOO = False
-PLOT_OUTCOME_RLOO = True
+PLOT_OUTCOME_RLOO = False
 PLOT_PROCESS_RLOO_WITH_KL = False
-PLOT_OUTCOME_RLOO_WITH_KL = True
+PLOT_OUTCOME_RLOO_WITH_KL = False
 PLOT_PROCESS_RLOO_WITH_IS = False
-PLOT_OUTCOME_RLOO_WITH_IS = True
+PLOT_OUTCOME_RLOO_WITH_IS = False
 PLOT_PROCESS_RLOO_WITH_KL_IS = False
-PLOT_OUTCOME_RLOO_WITH_KL_IS = True
+PLOT_OUTCOME_RLOO_WITH_KL_IS = False
 PLOT_PROCESS_RLOO_WITH_CLIPPING = False
-PLOT_OUTCOME_RLOO_WITH_CLIPPING = True
-PLOT_PROCESS_GRPO = False
-PLOT_OUTCOME_GRPO = True
+PLOT_OUTCOME_RLOO_WITH_CLIPPING = False
+PLOT_PROCESS_GRPO = True
+PLOT_OUTCOME_GRPO = False
 PLOT_PPO = False
 
 # --- Training and Evaluation ---
@@ -384,8 +384,8 @@ if TRAIN_PROCESS_GRPO:
     print("Starting Process GRPO profiling...")
     pr.enable()  # Start profiling
 
-    # grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=process_grpo_eval_callback)
-    grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+    grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=process_grpo_eval_callback)
+    # grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
 
     pr.disable()
     print("Process GRPO profiling completed. Saving profiling data...")
@@ -425,8 +425,8 @@ if TRAIN_OUTCOME_GRPO:
     print("Starting Outcome GRPO profiling...")
     pr.enable()  # Start profiling
 
-    # grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=outcome_grpo_eval_callback)
-    grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+    grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=outcome_grpo_eval_callback)
+    # grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
 
     pr.disable()
     print("Outcome GRPO profiling completed. Saving profiling data...")
@@ -466,8 +466,8 @@ if TRAIN_PPO:
     print("Starting PPO profiling...")
     pr.enable()  # Start profiling
 
-    # ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=ppo_eval_callback)
-    ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+    ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=ppo_eval_callback)
+    # ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
 
     pr.disable()
     print("PPO profiling completed. Saving profiling data...")
