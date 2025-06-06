@@ -2,6 +2,7 @@
 import time
 from datetime import datetime
 import warnings
+import cProfile
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,12 +14,15 @@ from sb3_contrib.grpo.buffers import OutcomeGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-N_TRAINING_TIMESTEPS = 200_000
+N_TRAINING_TIMESTEPS = 100_000
+
 N_EVAL_EPISODES = 5
 EVAL_FREQ = 1000
 EVAL_PATH = "./eval/eval_logs/"
-EVAL_PLOT_DISPLAY_STEPS = 200_000  # needs to be <= N_TRAINING_TIMESTEPS
-EVAL_PLOT_CONFIDENCE_OPAQUENESS = 0.1
+
+PLOT_EVAL_RESULTS = False  # Set to True to plot evaluation results after training
+EVAL_PLOT_DISPLAY_STEPS = 100_000  # needs to be <= N_TRAINING_TIMESTEPS
+EVAL_PLOT_OPAQUENESS_ALPHA = 0.1
 SAVE_EVAL_PLOT = True
 
 TRAIN_PROCESS_RLOO =False
@@ -31,9 +35,9 @@ TRAIN_PROCESS_RLOO_WITH_IS = False
 TRAIN_OUTCOME_RLOO_WITH_IS = False
 TRAIN_PROCESS_RLOO_WITH_CLIPPING = False
 TRAIN_OUTCOME_RLOO_WITH_CLIPPING = False
-TRAIN_PROCESS_GRPO = False
+TRAIN_PROCESS_GRPO = True
 TRAIN_OUTCOME_GRPO = False
-TRAIN_PPO = False
+TRAIN_PPO = True
 
 PLOT_PROCESS_RLOO = False
 PLOT_OUTCOME_RLOO = True
@@ -366,7 +370,6 @@ if TRAIN_PROCESS_GRPO:
         render=False,
         verbose=0,
     )
-
     grpo_model = GRPO(
         "GroupPolicy",
         process_grpo_vec_env,
@@ -376,7 +379,19 @@ if TRAIN_PROCESS_GRPO:
     )
     print("Starting Process GRPO training...")
     start_time = time.time()
-    grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=process_grpo_eval_callback)
+
+    pr = cProfile.Profile()
+    print("Starting Process GRPO profiling...")
+    pr.enable()  # Start profiling
+
+    # grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=process_grpo_eval_callback)
+    grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+
+    pr.disable()
+    print("Process GRPO profiling completed. Saving profiling data...")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    pr.dump_stats(f"./eval/profiling_outputs/process_grpo_profile_{timestamp}.prof")
+
     end_time = time.time()
     print(f"Process GRPO training completed in {(end_time - start_time):.2f} seconds.")
 
@@ -394,7 +409,6 @@ if TRAIN_OUTCOME_GRPO:
         render=False,
         verbose=0,
     )
-
     grpo_model = GRPO(
         "GroupPolicy",
         outcome_grpo_vec_env,
@@ -403,9 +417,22 @@ if TRAIN_OUTCOME_GRPO:
         n_epochs=10,
         group_rollout_buffer_class=OutcomeGroupBuffer,
     )
+
     print("Starting Outcome GRPO training...")
     start_time = time.time()
-    grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=outcome_grpo_eval_callback)
+
+    pr = cProfile.Profile()
+    print("Starting Outcome GRPO profiling...")
+    pr.enable()  # Start profiling
+
+    # grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=outcome_grpo_eval_callback)
+    grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+
+    pr.disable()
+    print("Outcome GRPO profiling completed. Saving profiling data...")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    pr.dump_stats(f"./eval/profiling_outputs/outcome_grpo_profile_{timestamp}.prof")
+
     end_time = time.time()
     print(f"Outcome GRPO training completed in {(end_time - start_time):.2f} seconds.")
 
@@ -423,197 +450,210 @@ if TRAIN_PPO:
         render=False,
         verbose=0,
     )
-
     ppo_model = PPO(
         "MlpPolicy",
         ppo_vec_env,
         verbose=0,
         batch_size=16,
         n_epochs=10,
+        # n_steps=512,  # Adjusted for fair comparison with GRPO
     )
+
     print("Starting PPO training...")
     start_time = time.time()
-    ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=ppo_eval_callback)
+
+    pr = cProfile.Profile()
+    print("Starting PPO profiling...")
+    pr.enable()  # Start profiling
+
+    # ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=ppo_eval_callback)
+    ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+
+    pr.disable()
+    print("PPO profiling completed. Saving profiling data...")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    pr.dump_stats(f"./eval/profiling_outputs/ppo_profile_{timestamp}.prof")
+
     end_time = time.time()
     print(f"PPO training completed in {(end_time - start_time):.2f} seconds.")
 
 # --- Plotting Evaluation Results ---
-if PLOT_PROCESS_RLOO:
-    data = np.load(EVAL_PATH + "process_rloo/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+if PLOT_EVAL_RESULTS:
+    if PLOT_PROCESS_RLOO:
+        data = np.load(EVAL_PATH + "process_rloo/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Process RLOO Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Process RLOO Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_OUTCOME_RLOO:
-    data = np.load(EVAL_PATH + "outcome_rloo/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_OUTCOME_RLOO:
+        data = np.load(EVAL_PATH + "outcome_rloo/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Outcome RLOO Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_PROCESS_RLOO_WITH_KL:
-    data = np.load(EVAL_PATH + "process_rloo_kl/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_PROCESS_RLOO_WITH_KL:
+        data = np.load(EVAL_PATH + "process_rloo_kl/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Process RLOO with KL Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Process RLOO with KL Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_OUTCOME_RLOO_WITH_KL:
-    data = np.load(EVAL_PATH + "outcome_rloo_kl/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_OUTCOME_RLOO_WITH_KL:
+        data = np.load(EVAL_PATH + "outcome_rloo_kl/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Outcome RLOO with KL Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with KL Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_PROCESS_RLOO_WITH_IS:
-    data = np.load(EVAL_PATH + "process_rloo_is/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_PROCESS_RLOO_WITH_IS:
+        data = np.load(EVAL_PATH + "process_rloo_is/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Process RLOO with IS Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Process RLOO with IS Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_OUTCOME_RLOO_WITH_KL_IS:
-    data = np.load(EVAL_PATH + "outcome_rloo_is/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_OUTCOME_RLOO_WITH_KL_IS:
+        data = np.load(EVAL_PATH + "outcome_rloo_is/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Outcome RLOO with IS Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with IS Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_PROCESS_RLOO_WITH_KL_IS:
-    data = np.load(EVAL_PATH + "process_rloo_kl_is/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_PROCESS_RLOO_WITH_KL_IS:
+        data = np.load(EVAL_PATH + "process_rloo_kl_is/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Process RLOO with KL and IS Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Process RLOO with KL and IS Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_OUTCOME_RLOO_WITH_KL_IS:
-    data = np.load(EVAL_PATH + "outcome_rloo_kl_is/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_OUTCOME_RLOO_WITH_KL_IS:
+        data = np.load(EVAL_PATH + "outcome_rloo_kl_is/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Outcome RLOO with KL and IS Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with KL and IS Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_PROCESS_RLOO_WITH_CLIPPING:
-    data = np.load(EVAL_PATH + "process_rloo_clipping/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_PROCESS_RLOO_WITH_CLIPPING:
+        data = np.load(EVAL_PATH + "process_rloo_clipping/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Process RLOO with Clipping Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Process RLOO with Clipping Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_OUTCOME_RLOO_WITH_CLIPPING:
-    data = np.load(EVAL_PATH + "outcome_rloo_clipping/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_OUTCOME_RLOO_WITH_CLIPPING:
+        data = np.load(EVAL_PATH + "outcome_rloo_clipping/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Outcome RLOO with Clipping Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with Clipping Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_PROCESS_GRPO:
-    data = np.load(EVAL_PATH + "process_grpo/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_PROCESS_GRPO:
+        data = np.load(EVAL_PATH + "process_grpo/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Process GRPO Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Process GRPO Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_OUTCOME_GRPO:
-    data = np.load(EVAL_PATH + "outcome_grpo/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_OUTCOME_GRPO:
+        data = np.load(EVAL_PATH + "outcome_grpo/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="Outcome GRPO Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="Outcome GRPO Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-if PLOT_PPO:
-    data = np.load(EVAL_PATH + "ppo/evaluations.npz")
-    timesteps = data["timesteps"]
-    timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
-    results = data["results"]
-    results = results[:len(timesteps)]
+    if PLOT_PPO:
+        data = np.load(EVAL_PATH + "ppo/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
 
-    mean_rewards = results.mean(axis=1)
-    std_rewards = results.std(axis=1)
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
 
-    plt.plot(timesteps, mean_rewards, label="PPO Mean Reward")
-    plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_CONFIDENCE_OPAQUENESS)
+        plt.plot(timesteps, mean_rewards, label="PPO Mean Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-plt.xlabel("Timesteps")
-plt.ylabel("Evaluation Reward")
-plt.title("Evaluation Performance Over Time")
-plt.legend(loc="best", framealpha=0.3)
-plt.grid()
-plt.tight_layout()
-if SAVE_EVAL_PLOT:
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    plt.savefig(f"./eval/eval_images/eval_performance_{timestamp}.png")
-plt.show()
+    plt.xlabel("Timesteps")
+    plt.ylabel("Evaluation Reward")
+    plt.title("Evaluation Performance Over Time")
+    plt.legend(loc="best", framealpha=0.3)
+    plt.grid()
+    plt.tight_layout()
+    if SAVE_EVAL_PLOT:
+        plt.savefig(f"./eval/eval_images/eval_performance_{timestamp}.png")
+    plt.show()

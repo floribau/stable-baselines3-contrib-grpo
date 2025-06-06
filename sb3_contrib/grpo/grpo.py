@@ -299,7 +299,7 @@ class GRPO(BaseAlgorithm):
     def _train_outcome_supervision(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
         pg_losses, kl_losses, entropy_losses, clip_fractions = [], [], [], []
 
-        advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories, 1)
+        advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories, )
 
         for _ in range(self.n_epochs):
 
