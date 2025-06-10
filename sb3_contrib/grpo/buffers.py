@@ -238,7 +238,7 @@ class TimestepGroupBuffer(GroupBuffer):
                 if len(traj_returns) > t:
                     single_advantage = traj_returns[t] - mean_timestep_return
                     if self.scale_rewards:
-                        single_advantage /= std_timestep_return
+                        single_advantage /= (std_timestep_return + 1e-8)  # avoid division by zero
                     advantages[i][t] = single_advantage
 
             return advantages

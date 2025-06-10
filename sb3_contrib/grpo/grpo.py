@@ -248,16 +248,16 @@ class GRPO(BaseAlgorithm):
         clip_range = self.clip_range(self._current_progress_remaining)
 
         if self.group_rollout_buffer.supervision_type.if_outcome_supervision():
-            pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_outcome_supervision(clip_range)
+            pg_losses, kl_losses, entropy_losses, clip_fractions, losses = self._train_outcome_supervision(clip_range)
         else:
-            pg_losses, kl_losses, entropy_losses, clip_fractions, loss = self._train_process_supervision(clip_range)
+            pg_losses, kl_losses, entropy_losses, clip_fractions, losses = self._train_process_supervision(clip_range)
 
         # Logs
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
         self.logger.record("train/kl_loss", np.mean(kl_losses))
         self.logger.record("train/entropy_loss", np.mean(entropy_losses))
         self.logger.record("train/clip_fraction", np.mean(clip_fractions))
-        self.logger.record("train/total_loss", loss.item())  # IDEA it probably makes more sense to use mean of a list here
+        self.logger.record("train/total_loss", np.mean(losses))
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
@@ -265,7 +265,7 @@ class GRPO(BaseAlgorithm):
         self.logger.record("train/clip_range", clip_range)
 
     def _train_process_supervision(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
-        pg_losses, kl_losses, entropy_losses, clip_fractions = [], [], [], []
+        pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
         advantages = self.group_rollout_buffer.get_advantages()
 
@@ -322,6 +322,7 @@ class GRPO(BaseAlgorithm):
                 pg_losses.append(policy_loss.item())
                 kl_losses.append(kl_loss.item())
                 entropy_losses.append(entropy_loss.item())
+                losses.append(loss.item())
                 clip_fraction = th.mean((th.abs(ratios - 1.0) > clip_range).float()).item()
                 clip_fractions.append(clip_fraction)
 
@@ -334,10 +335,10 @@ class GRPO(BaseAlgorithm):
 
             self._n_updates += 1  # this is in accordance with PPO from SB3
 
-        return pg_losses, kl_losses, entropy_losses, clip_fractions, loss
+        return pg_losses, kl_losses, entropy_losses, clip_fractions, losses
 
     def _train_outcome_supervision(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
-        pg_losses, kl_losses, entropy_losses, clip_fractions = [], [], [], []
+        pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
         advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories, )
 
@@ -392,6 +393,7 @@ class GRPO(BaseAlgorithm):
                 pg_losses.append(policy_loss.item())
                 kl_losses.append(kl_loss.item())
                 entropy_losses.append(entropy_loss.item())
+                losses.append(loss.item())
                 clip_fraction = float(abs(ratio.item() - 1.0) > clip_range)
                 clip_fractions.append(clip_fraction)
 
@@ -404,7 +406,7 @@ class GRPO(BaseAlgorithm):
 
             self._n_updates += 1
 
-        return pg_losses, kl_losses, entropy_losses, clip_fractions, loss
+        return pg_losses, kl_losses, entropy_losses, clip_fractions, losses
 
     def dump_logs(self, iteration: int = 0):
         """
