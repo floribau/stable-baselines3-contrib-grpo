@@ -271,13 +271,11 @@ class GRPO(BaseAlgorithm):
 
         for _ in range(self.n_epochs):
 
+            obs_list, actions_list, old_log_probs_list, advantages_list = [], [], [], []
+
             for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
                 obs, actions, old_log_probs = traj.to_tensor()
                 # TODO change this for RLOO (without IS) -> sample new traj from new policy
-
-                if not self.use_importance_sampling:
-                    # Sample new trajectory, this also needs the initial env state
-                    pass
 
                 old_log_probs = old_log_probs.detach()
 
@@ -288,18 +286,77 @@ class GRPO(BaseAlgorithm):
                     # Convert discrete action from float to long
                     actions = actions.long().flatten()
 
-                current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
-
                 advantage_tensor = advantages[traj_idx].detach()
 
-                # Surrogate loss
+                if not self.use_importance_sampling:  # TODO change this to batch flag
+                    # Only collect values for batched policy update for the whole group
+                    obs_list.append(obs)
+                    actions_list.append(actions)
+                    old_log_probs_list.append(old_log_probs)
+                    advantages_list.append(advantage_tensor)
+
+                else:
+                    # Policy update for each trajectory separately
+                    current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
+
+                    # Surrogate loss
+                    ratios = (
+                        th.exp(current_log_probs - old_log_probs)
+                        if self.use_importance_sampling
+                        else th.ones_like(current_log_probs, device=self.device)
+                    )
+                    surr1 = ratios * advantage_tensor
+                    surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantage_tensor
+                    policy_loss = -th.min(surr1, surr2).mean()
+
+                    # KL divergence penalty
+                    with th.no_grad():
+                        log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
+                    kl_ratios = log_probs_ref - current_log_probs
+                    kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
+                    kl_loss = kl_div_estimate.mean()
+
+                    # Entropy loss
+                    if entropy is None:
+                        # Approximate entropy when no analytical form
+                        entropy_loss = -th.mean(-current_log_probs)
+                    else:
+                        entropy_loss = -th.mean(entropy)
+
+                    loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
+
+                    # Logging
+                    pg_losses.append(policy_loss.item())
+                    kl_losses.append(kl_loss.item())
+                    entropy_losses.append(entropy_loss.item())
+                    losses.append(loss.item())
+                    clip_fraction = th.mean((th.abs(ratios - 1.0) > clip_range).float()).item()
+                    clip_fractions.append(clip_fraction)
+
+                    self.policy.optimizer.zero_grad()
+                    loss.backward()
+                    if self.max_grad_norm is not None:
+                        # Clip grad norm
+                        th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                    self.policy.optimizer.step()
+
+            if not self.use_importance_sampling:  # TODO change this to batch flag
+                # Finally the batched policy update for the whole group
+                obs = th.cat(obs_list, dim=0)
+                actions = th.cat(actions_list, dim=0)
+                old_log_probs = th.cat(old_log_probs_list, dim=0)
+                advantages_tensor = th.cat(advantages_list, dim=0)
+
+                current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
+
+                # Policy Gradient loss
                 ratios = (
-                    th.exp(current_log_probs - old_log_probs)
+                    th.exp(current_log_probs - old_log_probs)  # NOTE this should be all ones anyways in the first epoch
                     if self.use_importance_sampling
                     else th.ones_like(current_log_probs, device=self.device)
                 )
-                surr1 = ratios * advantage_tensor
-                surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantage_tensor
+                surr1 = ratios * advantages_tensor
+                surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantages_tensor
                 policy_loss = -th.min(surr1, surr2).mean()
 
                 # KL divergence penalty
@@ -310,11 +367,7 @@ class GRPO(BaseAlgorithm):
                 kl_loss = kl_div_estimate.mean()
 
                 # Entropy loss
-                if entropy is None:
-                    # Approximate entropy when no analytical form
-                    entropy_loss = -th.mean(-current_log_probs)
-                else:
-                    entropy_loss = -th.mean(entropy)
+                entropy_loss = -th.mean(entropy) if entropy is not None else -th.mean(-current_log_probs)
 
                 loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
 
