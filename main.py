@@ -21,9 +21,9 @@ EVAL_FREQ = 1000
 EVAL_PATH = "./eval/eval_logs/"
 
 PLOT_EVAL_RESULTS = True  # Set to True to plot evaluation results after training
-EVAL_PLOT_DISPLAY_STEPS = 100_000  # needs to be <= N_TRAINING_TIMESTEPS
+EVAL_PLOT_DISPLAY_STEPS = 100_000  # should be <= N_TRAINING_TIMESTEPS
 EVAL_PLOT_OPAQUENESS_ALPHA = 0.1
-SAVE_EVAL_PLOT = False
+SAVE_EVAL_PLOT = True
 
 TRAIN_PROCESS_RLOO = False
 TRAIN_OUTCOME_RLOO = False
@@ -375,7 +375,7 @@ if TRAIN_PROCESS_GRPO:
     grpo_model = GRPO(
         "GroupPolicy",
         process_grpo_vec_env,
-        verbose=0,
+        verbose=1,
         group_size=16,
         n_epochs=10,
     )
@@ -413,7 +413,7 @@ if TRAIN_OUTCOME_GRPO:
     grpo_model = GRPO(
         "GroupPolicy",
         outcome_grpo_vec_env,
-        verbose=0,
+        verbose=1,
         group_size=16,
         n_epochs=10,
         group_rollout_buffer_class=OutcomeGroupBuffer,
@@ -486,7 +486,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Process RLOO Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Process RLOO Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_OUTCOME_RLOO:
@@ -499,7 +499,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Outcome RLOO Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_PROCESS_RLOO_WITH_KL:
@@ -512,7 +512,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Process RLOO with KL Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Process RLOO with KL Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_OUTCOME_RLOO_WITH_KL:
@@ -525,7 +525,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with KL Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with KL Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_PROCESS_RLOO_WITH_IS:
@@ -538,7 +538,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Process RLOO with IS Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Process RLOO with IS Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_OUTCOME_RLOO_WITH_KL_IS:
@@ -551,7 +551,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with IS Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with IS Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_PROCESS_RLOO_WITH_KL_IS:
@@ -564,7 +564,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Process RLOO with KL and IS Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Process RLOO with KL and IS Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_OUTCOME_RLOO_WITH_KL_IS:
@@ -577,7 +577,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with KL and IS Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with KL and IS Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_PROCESS_RLOO_WITH_CLIPPING:
@@ -590,7 +590,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Process RLOO with Clipping Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Process RLOO with Clipping Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_OUTCOME_RLOO_WITH_CLIPPING:
@@ -603,7 +603,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with Clipping Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with Clipping Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_PROCESS_GRPO:
@@ -616,7 +616,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Process GRPO Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Process GRPO Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_OUTCOME_GRPO:
@@ -629,7 +629,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Outcome GRPO Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome GRPO Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_PPO:
@@ -642,7 +642,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="PPO Mean Reward")
+        plt.plot(timesteps, mean_rewards, label="PPO Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     plt.xlabel("Timesteps")
