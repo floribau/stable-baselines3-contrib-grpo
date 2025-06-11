@@ -14,15 +14,15 @@ from sb3_contrib.grpo.buffers import OutcomeGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-N_TRAINING_TIMESTEPS = 100_000
+N_TRAINING_TIMESTEPS = 300_000
 
 N_EVAL_EPISODES = 5
 EVAL_FREQ = 1000
 EVAL_PATH = "./eval/eval_logs/"
 
 PLOT_EVAL_RESULTS = True  # Set to True to plot evaluation results after training
-EVAL_PLOT_DISPLAY_STEPS = 100_000  # should be <= N_TRAINING_TIMESTEPS
-EVAL_PLOT_OPAQUENESS_ALPHA = 0.1
+EVAL_PLOT_DISPLAY_STEPS = 300_000  # should be <= N_TRAINING_TIMESTEPS
+EVAL_PLOT_OPAQUENESS_ALPHA = 0.2
 SAVE_EVAL_PLOT = True
 
 TRAIN_PROCESS_RLOO = False
@@ -38,6 +38,7 @@ TRAIN_OUTCOME_RLOO_WITH_CLIPPING = False
 TRAIN_PROCESS_GRPO = False
 TRAIN_OUTCOME_GRPO = False
 TRAIN_PPO = False
+TRAIN_PURE_RLOO = False
 
 PLOT_PROCESS_RLOO = False
 PLOT_OUTCOME_RLOO = False
@@ -49,9 +50,10 @@ PLOT_PROCESS_RLOO_WITH_KL_IS = False
 PLOT_OUTCOME_RLOO_WITH_KL_IS = False
 PLOT_PROCESS_RLOO_WITH_CLIPPING = False
 PLOT_OUTCOME_RLOO_WITH_CLIPPING = False
-PLOT_PROCESS_GRPO = False
-PLOT_OUTCOME_GRPO = False
-PLOT_PPO = False
+PLOT_PROCESS_GRPO = True
+PLOT_OUTCOME_GRPO = True
+PLOT_PPO = True
+PLOT_PURE_RLOO = True
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -474,6 +476,49 @@ if TRAIN_PPO:
     end_time = time.time()
     print(f"PPO training completed in {(end_time - start_time):.2f} seconds.")
 
+if TRAIN_PURE_RLOO:
+    # Pure RLOO
+    vec_env = make_vec_env("CartPole-v1", n_envs=1)
+    eval_env = make_vec_env("CartPole-v1", n_envs=1)
+
+    outcome_grpo_eval_callback = EvalCallback(
+        eval_env,
+        log_path=EVAL_PATH + "pure_rloo_no_clipping/",
+        eval_freq=EVAL_FREQ,
+        n_eval_episodes=N_EVAL_EPISODES,
+        deterministic=True,
+        render=False,
+        verbose=0,
+    )
+    grpo_model = GRPO(
+        "GroupPolicy",
+        vec_env,
+        verbose=1,
+        group_size=16,
+        n_epochs=1,
+        use_importance_sampling=False,
+        max_grad_norm=None,
+        batch_group_updates=True,
+        group_rollout_buffer_class=OutcomeGroupBuffer,
+    )
+
+    print("Starting Pure RLOO training...")
+    start_time = time.time()
+
+    pr = cProfile.Profile()
+    print("Starting Pure RLOO profiling...")
+    pr.enable()  # Start profiling
+
+    grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=outcome_grpo_eval_callback)
+    # grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+
+    pr.disable()
+    # print("Pure RLOO profiling completed. Saving profiling data...")
+    # pr.dump_stats(f"./eval/profiling_outputs/outcome_grpo_profile_{timestamp}.prof")
+
+    end_time = time.time()
+    print(f"Pure RLOO training completed in {(end_time - start_time):.2f} seconds.")
+
 # --- Plotting Evaluation Results ---
 if PLOT_EVAL_RESULTS:
     if PLOT_PROCESS_RLOO:
@@ -541,7 +586,7 @@ if PLOT_EVAL_RESULTS:
         plt.plot(timesteps, mean_rewards, label="Process RLOO with IS Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-    if PLOT_OUTCOME_RLOO_WITH_KL_IS:
+    if PLOT_OUTCOME_RLOO_WITH_IS:
         data = np.load(EVAL_PATH + "outcome_rloo_is/evaluations.npz")
         timesteps = data["timesteps"]
         timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
@@ -643,6 +688,31 @@ if PLOT_EVAL_RESULTS:
         std_rewards = results.std(axis=1)
 
         plt.plot(timesteps, mean_rewards, label="PPO Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
+
+    if PLOT_PURE_RLOO:
+        data = np.load(EVAL_PATH + "pure_rloo/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
+
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
+
+        plt.plot(timesteps, mean_rewards, label="Pure RLOO Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
+
+        data = np.load(EVAL_PATH + "pure_rloo_no_clipping/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
+
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
+
+        plt.plot(timesteps, mean_rewards, label="Pure RLOO No Clipping Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     plt.xlabel("Timesteps")

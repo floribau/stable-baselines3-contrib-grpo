@@ -17,7 +17,7 @@ class SupervisionType(Enum):
     OUTCOME = 0
     PROCESS = 1
 
-    def if_outcome_supervision(self) -> bool:
+    def is_outcome_supervision(self) -> bool:
         """Returns True if the supervision type is outcome supervision."""
         return self == SupervisionType.OUTCOME
 
@@ -106,6 +106,9 @@ class GroupBuffer(BaseBuffer):
     Buffer class containing a group of trajectories for a single GRPO update.
     The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep relativ
     to the mean return-to-go of all timesteps in the group.
+
+    # TODO apply this closer to DeepSeekMath, likely needs another Gym env
+    # IDEA check PPO implementation, how they use the per-step reward
     """
 
     trajectories: list[Trajectory]
@@ -153,22 +156,6 @@ class GroupBuffer(BaseBuffer):
         if self.returns is None:
             self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
 
-    def get_return_mean(self) -> th.Tensor:
-        """
-        Returns the mean of all returns-to-go in the group.
-        """
-        self._maybe_compute_returns()
-        all_returns_to_go = th.cat(self.returns)
-        return all_returns_to_go.mean()
-
-    def get_return_std(self) -> th.Tensor:
-        """
-        Returns the standard deviation of all returns-to-go in the group.
-        """
-        self._maybe_compute_returns()
-        all_returns_to_go = th.cat(self.returns)
-        return all_returns_to_go.std()
-
     def get_advantages(self) -> list[th.Tensor]:
         """
         Returns a list of advantage tensors relative to the group.
@@ -177,8 +164,9 @@ class GroupBuffer(BaseBuffer):
         assert len(self.trajectories) > 0, "Cannot compute advantages: No trajectories in the buffer."
         self._maybe_compute_returns()
 
-        mean_return = self.get_return_mean()
-        std_return = self.get_return_std()
+        all_returns_to_go = th.cat(self.returns)
+        mean_return = all_returns_to_go.mean()
+        std_return = all_returns_to_go.mean()
 
         advantages = [r - mean_return for r in self.returns]
         if self.scale_rewards:
@@ -208,20 +196,6 @@ class TimestepGroupBuffer(GroupBuffer):
         if self.returns is None:
             self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
 
-    def get_return_mean(self) -> th.Tensor:
-        """
-        Returns a tensor of all mean returns-to-go at timestept t for t = 1, ..., T.
-        """
-        # TODO implement
-        raise NotImplementedError
-
-    def get_return_std(self) -> th.Tensor:
-        """
-        Returns a tensor of all standard deviations of returns-to-go at timestept t for t = 1, ..., T.
-        """
-        # TODO implement
-        raise NotImplementedError
-
     def get_advantages(self) -> list[th.Tensor]:
         assert len(self.trajectories) > 0
         self._maybe_compute_returns()
@@ -238,7 +212,7 @@ class TimestepGroupBuffer(GroupBuffer):
                 if len(traj_returns) > t:
                     single_advantage = traj_returns[t] - mean_timestep_return
                     if self.scale_rewards:
-                        single_advantage /= (std_timestep_return + 1e-8)  # avoid division by zero
+                        single_advantage /= std_timestep_return + 1e-8  # avoid division by zero
                     advantages[i][t] = single_advantage
 
             return advantages
@@ -268,25 +242,24 @@ class OutcomeGroupBuffer(GroupBuffer):
         if self.returns is None:
             self.returns = np.array([sum(traj.rewards) for traj in self.trajectories])
 
-    def get_return_mean(self) -> th.Tensor:
-        """
-        Returns the mean of all trajectory returns in the group.
-        """
-        # TODO implement
-        raise NotImplementedError
-
-    def get_return_std(self) -> th.Tensor:
-        """
-        Returns the standard deviation of all trajectory returns in the group.
-        """
-        # TODO implement
-        raise NotImplementedError
-
     def get_advantages(self) -> np.ndarray:
+        self._maybe_compute_returns()
         mean_return = np.mean(self.returns)
         std_return = np.std(self.returns)
 
         advantages = self.returns - mean_return
         if self.scale_rewards:
             advantages /= std_return + 1e-8  # avoid division by zero
+        return advantages
+
+    def get_leave_one_out_advantages(self) -> np.ndarray:
+        """
+        TODO doc
+        """
+        assert len(self.trajectories) > 0
+        self._maybe_compute_returns()
+
+        total_return_sum = np.array(self.returns, dtype=np.float32).sum()
+        k = len(self.returns)
+        advantages = self.returns - (total_return_sum - self.returns) / (k - 1)
         return advantages

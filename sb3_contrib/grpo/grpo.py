@@ -42,6 +42,7 @@ class GRPO(BaseAlgorithm):
     :param gamma: Discount factor. In stanrard GRPO, it is set to 1.
     :param clip_range: Clipping parameter, it can be a function of the current progress
         remaining (from 1 to 0).
+    :param batch_group_updates: TODO
     :param use_importance_sampling: Whether to use importance sampling for the policy gradient loss.
         If ``False``, TODO
     :param scale_rewards: Whether to scale rewards by the standard deviation during advantage calculation.
@@ -87,6 +88,7 @@ class GRPO(BaseAlgorithm):
         n_epochs: int = 10,
         gamma: float = 1,
         clip_range: float | Schedule = 0.2,
+        batch_group_updates: bool = False,
         use_importance_sampling: bool = True,
         scale_rewards: bool = False,
         kl_beta: float = 0.01,
@@ -123,6 +125,8 @@ class GRPO(BaseAlgorithm):
         )
         self.group_size = group_size
         self.gamma = gamma
+        assert use_importance_sampling or n_epochs == 1, "If not using importance sampling, n_epochs must be 1."
+        assert use_importance_sampling or batch_group_updates, "If not using importance sampling, updates must be batched."
         self.n_epochs = n_epochs
         self.clip_range = clip_range
         self.use_importance_sampling = use_importance_sampling
@@ -247,24 +251,31 @@ class GRPO(BaseAlgorithm):
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)
 
-        if self.group_rollout_buffer.supervision_type.if_outcome_supervision():
+        if self.group_rollout_buffer.supervision_type.is_outcome_supervision() and self.use_importance_sampling:
             pg_losses, kl_losses, entropy_losses, clip_fractions, losses = self._train_outcome_supervision(clip_range)
+        elif self.group_rollout_buffer.supervision_type.is_outcome_supervision() and not self.use_importance_sampling:
+            pg_losses, kl_losses, entropy_losses, clip_fractions, losses = self._train_rloo()
         else:
             pg_losses, kl_losses, entropy_losses, clip_fractions, losses = self._train_process_supervision(clip_range)
 
         # Logs
-        self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
-        self.logger.record("train/kl_loss", np.mean(kl_losses))
-        self.logger.record("train/entropy_loss", np.mean(entropy_losses))
-        self.logger.record("train/clip_fraction", np.mean(clip_fractions))
-        self.logger.record("train/total_loss", np.mean(losses))
+        mean_pg_loss = np.mean(pg_losses) if pg_losses else np.nan
+        self.logger.record("train/policy_gradient_loss", mean_pg_loss)
+        mean_kl_loss = np.mean(kl_losses) if kl_losses else np.nan
+        self.logger.record("train/kl_loss", mean_kl_loss)
+        mean_entropy_loss = np.mean(entropy_losses) if entropy_losses else np.nan
+        self.logger.record("train/entropy_loss", mean_entropy_loss)
+        mean_clip_fraction = np.mean(clip_fractions) if clip_fractions else np.nan
+        self.logger.record("train/clip_fraction", mean_clip_fraction)
+        mean_total_loss = np.mean(losses) if losses else np.nan
+        self.logger.record("train/total_loss", mean_total_loss)
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/clip_range", clip_range)
 
-    def _train_process_supervision(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
+    def _train_process_supervision(self, clip_range: float) -> tuple[list, list, list, list, list]:
         pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
         advantages = self.group_rollout_buffer.get_advantages()
@@ -390,7 +401,7 @@ class GRPO(BaseAlgorithm):
 
         return pg_losses, kl_losses, entropy_losses, clip_fractions, losses
 
-    def _train_outcome_supervision(self, clip_range: float) -> tuple[list, list, list, list, th.Tensor]:
+    def _train_outcome_supervision(self, clip_range: float) -> tuple[list, list, list, list, list]:
         pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
         advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories, )
@@ -460,6 +471,56 @@ class GRPO(BaseAlgorithm):
             self._n_updates += 1
 
         return pg_losses, kl_losses, entropy_losses, clip_fractions, losses
+
+    def _train_rloo(self) -> tuple[list, list, list, list, list]:
+        """
+        TODO doc
+        NOTE this is always outcome supervision (is it?)
+        """
+        self.policy.set_training_mode(False)
+        advantages = self.group_rollout_buffer.get_leave_one_out_advantages()  # shape: (n_trajectories, )
+        grads, log_probs_sums, entropies = [], [], []
+
+        for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
+            obs, actions, old_log_probs = traj.to_tensor()  # per step log probs
+            advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)
+
+            if isinstance(self.action_space, spaces.Discrete):
+                # Convert discrete action from float to long
+                actions = actions.long().flatten()
+
+            current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
+            # Sanity check: current log probs equals old log probs because policy is the same
+            assert th.allclose(current_log_probs, old_log_probs, rtol=1e-4, atol=1e-6), f"Log probs {current_log_probs} should equal {old_log_probs}"
+            log_probs_sum = current_log_probs.sum()  # sum of log probs = log of product of probs
+
+            grads.append(log_probs_sum * advantage)
+            log_probs_sums.append(log_probs_sum)
+            entropies.append(entropy)
+
+        self.policy.set_training_mode(True)
+
+        # Policy gradient loss
+        assert len(advantages) > 1
+        pg_loss = -th.stack(grads).mean()
+
+        # Entropy loss
+        entropy_tensor = th.cat(entropies)
+        entropy_loss = -entropy_tensor.mean()
+
+        loss = pg_loss + self.ent_coef * entropy_loss
+
+        self.policy.optimizer.zero_grad()
+        loss.backward()  # computes gradients from the loss w.r.t policy parameters
+        if self.max_grad_norm is not None:
+            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+        self.policy.optimizer.step()
+
+        self._n_updates += 1
+
+        # pg_losses, kl_losses, entropy_losses, clip_fractions, total_losses
+        # NOTE clip_fractions and kl_losses not used here
+        return [pg_loss.item()], [], [entropy_loss.item()], [], [loss.item()]
 
     def dump_logs(self, iteration: int = 0):
         """
