@@ -45,6 +45,7 @@ class GRPO(BaseAlgorithm):
         If ``False``, TODO
     :param scale_rewards: Whether to scale rewards by the standard deviation during advantage calculation.
     :param kl_beta: KL divergence penalty coefficient for the loss calculation.
+    :param kl_ref_iterations: TODO
     :param ent_coef: Entropy coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
@@ -89,6 +90,7 @@ class GRPO(BaseAlgorithm):
         batch_group_updates: bool = False,
         scale_rewards: bool = False,
         kl_beta: float = 0.01,
+        kl_ref_iterations: int = 1,
         ent_coef: float = 0.005,
         max_grad_norm: float | None = 0.5,
         use_sde: bool = False,  # seems not to be relevant if spaces.Box is not supported as action space
@@ -127,6 +129,7 @@ class GRPO(BaseAlgorithm):
         self.batch_group_updates = batch_group_updates
         self.scale_rewards = scale_rewards
         self.kl_beta = kl_beta
+        self.kl_ref_iterations = kl_ref_iterations
         self.ent_coef = ent_coef
         assert max_grad_norm is None or max_grad_norm > 0, "max_grad_norm must be None or a positive float."
         self.max_grad_norm = max_grad_norm
@@ -250,16 +253,11 @@ class GRPO(BaseAlgorithm):
             pg_losses, kl_losses, entropy_losses, clip_fractions, losses = self._train_process_supervision(clip_range)
 
         # Logs
-        mean_pg_loss = np.mean(pg_losses) if pg_losses else np.nan
-        self.logger.record("train/policy_gradient_loss", mean_pg_loss)
-        mean_kl_loss = np.mean(kl_losses) if kl_losses else np.nan
-        self.logger.record("train/kl_loss", mean_kl_loss)
-        mean_entropy_loss = np.mean(entropy_losses) if entropy_losses else np.nan
-        self.logger.record("train/entropy_loss", mean_entropy_loss)
-        mean_clip_fraction = np.mean(clip_fractions) if clip_fractions else np.nan
-        self.logger.record("train/clip_fraction", mean_clip_fraction)
-        mean_total_loss = np.mean(losses) if losses else np.nan
-        self.logger.record("train/total_loss", mean_total_loss)
+        self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
+        self.logger.record("train/kl_loss", np.mean(kl_losses))
+        self.logger.record("train/entropy_loss", np.mean(entropy_losses))
+        self.logger.record("train/clip_fraction", np.mean(clip_fractions))
+        self.logger.record("train/total_loss", np.mean(losses))
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
@@ -278,7 +276,6 @@ class GRPO(BaseAlgorithm):
 
             for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
                 obs, actions, old_log_probs = traj.to_tensor()
-                # TODO change this for RLOO (without IS) -> sample new traj from new policy
 
                 old_log_probs = old_log_probs.detach()
 
@@ -573,7 +570,8 @@ class GRPO(BaseAlgorithm):
                 assert self.ep_info_buffer is not None, "Episode info buffer must be initialized before logging."
                 self.dump_logs(iteration)
 
-            self.policy_ref = self.policy.get_frozen_deepcopy()  # set reference policy to the current policy
+            if self.policy_ref is None or iteration % self.kl_ref_iterations == 0:
+                self.policy_ref = self.policy.get_frozen_deepcopy()  # set reference policy to the current policy
             self.train()  # Update the policy params based on the collected group rollouts
 
             iteration += 1

@@ -23,6 +23,8 @@ class RLOO(GRPO):
         group_size=64,
         gamma=1,
         scale_rewards=False,
+        kl_beta=0.01,
+        kl_ref_iterations=1,
         ent_coef=0.005,
         max_grad_norm=0.5,
         use_sde=False,
@@ -43,13 +45,13 @@ class RLOO(GRPO):
             env=env,
             learning_rate=learning_rate,
             group_size=group_size,
-            n_epochs=1,
+            n_epochs=1,  # Only one epoch in RLOO because policy can't change in one training iteration
             gamma=gamma,
-            clip_range=float("inf"),
-            batch_group_updates=True,
-            use_importance_sampling=False,
+            clip_range=float("inf"),  # RLOO doesn't clip advantages
+            batch_group_updates=True,  # RLOO is batched by definition
             scale_rewards=scale_rewards,
-            kl_beta=0,
+            kl_beta=kl_beta,
+            kl_ref_iterations=kl_ref_iterations,
             ent_coef=ent_coef,
             max_grad_norm=max_grad_norm,
             use_sde=use_sde,
@@ -72,10 +74,11 @@ class RLOO(GRPO):
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)
 
-        pg_losses, entropy_losses, losses = self._train_rloo()
+        pg_losses, kl_losses, entropy_losses, losses = self._train_rloo()
 
         # Logs
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
+        self.logger.record("train/kl_loss", np.mean(kl_losses))
         self.logger.record("train/entropy_loss", np.mean(entropy_losses))
         self.logger.record("train/total_loss", np.mean(losses))
         if hasattr(self.policy, "log_std"):
@@ -84,7 +87,7 @@ class RLOO(GRPO):
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/clip_range", clip_range)
 
-    def _train_rloo(self) -> tuple[list, list, list]:
+    def _train_rloo(self) -> tuple[list, list, list, list]:
         """
         TODO doc
         NOTE this is always outcome supervision (is it?)
@@ -94,6 +97,7 @@ class RLOO(GRPO):
         grads, log_probs_sums, entropies = [], [], []
 
         for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
+            # Only collect values for batched policy update for the whole group
             obs, actions, old_log_probs = traj.to_tensor()  # per step log probs
             advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)
 
@@ -114,16 +118,25 @@ class RLOO(GRPO):
 
         self.policy.set_training_mode(True)
 
-        # Policy gradient loss
+        # --- Policy Gradient loss ---
         assert len(advantages) > 1
         pg_loss = -th.stack(grads).mean()
 
-        # Entropy loss
+        # --- KL loss ---
+        with th.no_grad():
+            log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
+        kl_ratios = log_probs_ref - current_log_probs
+        kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
+        kl_loss = kl_div_estimate.mean()
+
+        # --- Entropy loss ---
         entropy_tensor = th.tensor(entropies)
         entropy_loss = -entropy_tensor.mean()
 
-        loss = pg_loss + self.ent_coef * entropy_loss
+        # --- Total loss ---
+        loss = pg_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
 
+        # --- Backprop ---
         self.policy.optimizer.zero_grad()
         loss.backward()  # computes gradients from the loss w.r.t policy parameters
         if self.max_grad_norm is not None:
@@ -133,4 +146,4 @@ class RLOO(GRPO):
         self._n_updates += 1
 
         # pg_losses, entropy_losses, total_losses
-        return [pg_loss.item()], [entropy_loss.item()], [loss.item()]
+        return [pg_loss.item()], [kl_loss.item()], [entropy_loss.item()], [loss.item()]
