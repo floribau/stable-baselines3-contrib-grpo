@@ -10,6 +10,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.ppo import PPO
 from sb3_contrib.grpo.grpo import GRPO
+from sb3_contrib.rloo.rloo import RLOO
 from sb3_contrib.grpo.buffers import OutcomeGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
@@ -490,16 +491,12 @@ if TRAIN_PURE_RLOO:
         render=False,
         verbose=0,
     )
-    grpo_model = GRPO(
+    grpo_model = RLOO(
         "GroupPolicy",
         vec_env,
         verbose=1,
         group_size=16,
-        n_epochs=1,
-        use_importance_sampling=False,
         max_grad_norm=None,
-        batch_group_updates=True,
-        group_rollout_buffer_class=OutcomeGroupBuffer,
     )
 
     print("Starting Pure RLOO training...")
