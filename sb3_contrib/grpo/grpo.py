@@ -496,7 +496,7 @@ class GRPO(BaseAlgorithm):
 
             grads.append(log_probs_sum * advantage)
             log_probs_sums.append(log_probs_sum)
-            entropies.append(entropy)
+            entropies.append(entropy.sum())
 
         self.policy.set_training_mode(True)
 
@@ -505,7 +505,7 @@ class GRPO(BaseAlgorithm):
         pg_loss = -th.stack(grads).mean()
 
         # Entropy loss
-        entropy_tensor = th.cat(entropies)
+        entropy_tensor = th.tensor(entropies)
         entropy_loss = -entropy_tensor.mean()
 
         loss = pg_loss + self.ent_coef * entropy_loss
