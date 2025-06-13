@@ -26,37 +26,44 @@ EVAL_PLOT_DISPLAY_STEPS = 300_000  # should be <= N_TRAINING_TIMESTEPS
 EVAL_PLOT_OPAQUENESS_ALPHA = 0.2
 SAVE_EVAL_PLOT = True
 
-TRAIN_OUTCOME_RLOO = True
-TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING = True
-TRAIN_PROCESS_RLOO_WITH_KL = False
+# --- Training options ---
+# --- RLOO ---
+TRAIN_OUTCOME_RLOO = False
+TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING = False
 TRAIN_OUTCOME_RLOO_WITH_KL = False
-TRAIN_PROCESS_RLOO_WITH_KL_IS = False
-TRAIN_OUTCOME_RLOO_WITH_KL_IS = False
-TRAIN_PROCESS_RLOO_WITH_IS = False
-TRAIN_OUTCOME_RLOO_WITH_IS = False
-TRAIN_PROCESS_RLOO_WITH_CLIPPING = False
-TRAIN_OUTCOME_RLOO_WITH_CLIPPING = False
+# --- GRPO ---
+TRAIN_PROCESS_GRPO_NO_CLIPPING_NO_KL = False
+TRAIN_OUTCOME_GRPO_NO_CLIPPING_NO_KL = False
+TRAIN_PROCESS_GRPO_NO_CLIPPING = False
+TRAIN_OUTCOME_GRPO_NO_CLIPPING = True
+TRAIN_PROCESS_GRPO_NO_KL = False
+TRAIN_OUTCOME_GRPO_NO_KL = False
 TRAIN_PROCESS_GRPO = False
-TRAIN_OUTCOME_GRPO = True
+TRAIN_OUTCOME_GRPO = False
+# --- PPO ---
 TRAIN_PPO = False
 
+# --- Plotting options ---
+# --- RLOO ---
 PLOT_OUTCOME_RLOO = True
-PLOT_OUTCOME_RLOO_NO_GRAD_CLIPPING = True
-PLOT_PROCESS_RLOO_WITH_KL = False
-PLOT_OUTCOME_RLOO_WITH_KL = False
-PLOT_PROCESS_RLOO_WITH_IS = False
-PLOT_OUTCOME_RLOO_WITH_IS = False
-PLOT_PROCESS_RLOO_WITH_KL_IS = False
-PLOT_OUTCOME_RLOO_WITH_KL_IS = False
-PLOT_PROCESS_RLOO_WITH_CLIPPING = False
-PLOT_OUTCOME_RLOO_WITH_CLIPPING = False
-PLOT_PROCESS_GRPO = True
+PLOT_OUTCOME_RLOO_NO_GRAD_CLIPPING = False
+PLOT_OUTCOME_RLOO_WITH_KL = True
+# --- GRPO ---
+PLOT_PROCESS_GRPO_NO_CLIPPING_NO_KL = False
+PLOT_OUTCOME_GRPO_NO_CLIPPING_NO_KL = False
+PLOT_PROCESS_GRPO_NO_CLIPPING = False
+PLOT_OUTCOME_GRPO_NO_CLIPPING = True
+PLOT_PROCESS_GRPO_NO_KL = False
+PLOT_OUTCOME_GRPO_NO_KL = True
+PLOT_PROCESS_GRPO = False
 PLOT_OUTCOME_GRPO = True
+# --- PPO ---
 PLOT_PPO = True
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 # --- Training and Evaluation ---
+# --- RLOO ---
 if TRAIN_OUTCOME_RLOO:
     # Vanilla RLOO with outcome supervision
     rloo_vec_env = make_vec_env("CartPole-v1", n_envs=1)
@@ -64,7 +71,7 @@ if TRAIN_OUTCOME_RLOO:
 
     rloo_eval_callback = EvalCallback(
         rloo_eval_env,
-        log_path=EVAL_PATH + "rloo/",
+        log_path=EVAL_PATH + "outcome_rloo/",
         eval_freq=EVAL_FREQ,
         n_eval_episodes=N_EVAL_EPISODES,
         deterministic=True,
@@ -76,25 +83,26 @@ if TRAIN_OUTCOME_RLOO:
         rloo_vec_env,
         verbose=1,
         group_size=16,
-        max_grad_norm=None,
+        ent_coef=0,
+        kl_beta=0,  # no KL penalty in standard RLOO
     )
 
-    print("Starting RLOO training...")
+    print("Starting Outcome RLOO training...")
     start_time = time.time()
 
     pr = cProfile.Profile()
-    print("Starting RLOO profiling...")
+    print("Starting Outcome RLOO profiling...")
     pr.enable()  # Start profiling
 
     rloo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=rloo_eval_callback)
     # rloo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
 
     pr.disable()
-    # print("RLOO profiling completed. Saving profiling data...")
-    # pr.dump_stats(f"./eval/profiling_outputs/rloo_profile_{timestamp}.prof")
+    # print("Outcome RLOO profiling completed. Saving profiling data...")
+    # pr.dump_stats(f"./eval/profiling_outputs/outcome_rloo_profile_{timestamp}.prof")
 
     end_time = time.time()
-    print(f"Pure RLOO training completed in {(end_time - start_time):.2f} seconds.")
+    print(f"Outcome RLOO training completed in {(end_time - start_time):.2f} seconds.")
 
 if TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING:
     # Pure RLOO
@@ -103,7 +111,7 @@ if TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING:
 
     rloo_no_grad_clipping_eval_callback = EvalCallback(
         eval_env,
-        log_path=EVAL_PATH + "pure_rloo_no_grad_clipping/",
+        log_path=EVAL_PATH + "outcome_rloo_no_grad_clipping/",
         eval_freq=EVAL_FREQ,
         n_eval_episodes=N_EVAL_EPISODES,
         deterministic=True,
@@ -115,25 +123,26 @@ if TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING:
         vec_env,
         verbose=1,
         group_size=16,
-        max_grad_norm=None,
+        kl_beta=0,  # no KL penalty in standard RLOO
+        max_grad_norm=None,  # no grad clipping
     )
 
-    print("Starting RLOO without grad clipping training...")
+    print("Starting Outcome RLOO without grad clipping training...")
     start_time = time.time()
 
     pr = cProfile.Profile()
-    print("Starting RLOO without grad clipping profiling...")
+    print("Starting Outcome RLOO without grad clipping profiling...")
     pr.enable()  # Start profiling
 
     rloo_no_grad_clipping_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=rloo_no_grad_clipping_eval_callback)
     # rloo_no_grad_clipping_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
 
     pr.disable()
-    # print("RLOO without grad clipping profiling completed. Saving profiling data...")
+    # print("Outcome RLOO without grad clipping profiling completed. Saving profiling data...")
     # pr.dump_stats(f"./eval/profiling_outputs/rloo_no_grad_clipping_profile_{timestamp}.prof")
 
     end_time = time.time()
-    print(f"RLOO without grad clipping training completed in {(end_time - start_time):.2f} seconds.")
+    print(f"Outcome RLOO without grad clipping training completed in {(end_time - start_time):.2f} seconds.")
 
 if TRAIN_OUTCOME_RLOO_WITH_KL:
     # Outcome supervision RLOO with KL penalty
@@ -149,197 +158,198 @@ if TRAIN_OUTCOME_RLOO_WITH_KL:
         render=False,
         verbose=0,
     )
-
     outcome_rloo_kl_model = RLOO(
         "GroupPolicy",
         outcome_rloo_kl_vec_env,
         kl_ref_iterations=10,
-        verbose=0,
+        verbose=1,
         group_size=16,
     )
+
     print("Starting Outcome RLOO with KL training...")
     start_time = time.time()
     outcome_rloo_kl_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=outcome_rloo_kl_eval_callback)
     end_time = time.time()
     print(f"Outcome RLOO with KL training completed in {(end_time - start_time):.2f} seconds.")
 
-if TRAIN_PROCESS_RLOO_WITH_IS:
+# --- GRPO ---
+if TRAIN_PROCESS_GRPO_NO_CLIPPING_NO_KL:
     # Process supervision RLOO with Importance Sampling
     process_rloo_is_vec_env = make_vec_env("CartPole-v1", n_envs=1)
     process_rloo_is_eval_env = make_vec_env("CartPole-v1", n_envs=1)
 
     process_rloo_is_eval_callback = EvalCallback(
         process_rloo_is_eval_env,
-        log_path=EVAL_PATH + "process_rloo_is/",
+        log_path=EVAL_PATH + "process_grpo_no_clipping_no_kl/",
         eval_freq=EVAL_FREQ,
         n_eval_episodes=N_EVAL_EPISODES,
         deterministic=True,
         render=False,
         verbose=0,
     )
-
     process_rloo_is_model = GRPO(
         "GroupPolicy",
         process_rloo_is_vec_env,
-        verbose=0,
+        verbose=1,
         group_size=16,
         n_epochs=10,
-        kl_beta=0.0,  # Set beta to zero, no KL penalty
+        kl_beta=0,  # Set beta to zero, no KL penalty
         clip_range=float("inf"),  # Set clipping factor to infinity for RLOO with IS
     )
-    print("Starting Process RLOO with IS training...")
+
+    print("Starting Process GRPO without clipping and KL training...")
     start_time = time.time()
     process_rloo_is_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=process_rloo_is_eval_callback)
     end_time = time.time()
-    print(f"Process RLOO with IS training completed in {(end_time - start_time):.2f} seconds.")
+    print(f"Process RPO without clipping and KL training completed in {(end_time - start_time):.2f} seconds.")
 
-if TRAIN_OUTCOME_RLOO_WITH_IS:
+if TRAIN_OUTCOME_GRPO_NO_CLIPPING_NO_KL:
     # Outcome supervision RLOO with Importance Sampling
     outcome_rloo_is_vec_env = make_vec_env("CartPole-v1", n_envs=1)
     outcome_rloo_is_eval_env = make_vec_env("CartPole-v1", n_envs=1)
 
     outcome_rloo_is_eval_callback = EvalCallback(
         outcome_rloo_is_eval_env,
-        log_path=EVAL_PATH + "outcome_rloo_is/",
+        log_path=EVAL_PATH + "outcome_grpo_no_clipping_no_kl/",
         eval_freq=EVAL_FREQ,
         n_eval_episodes=N_EVAL_EPISODES,
         deterministic=True,
         render=False,
         verbose=0,
     )
-
     outcome_rloo_is_model = GRPO(
         "GroupPolicy",
         outcome_rloo_is_vec_env,
-        verbose=0,
+        verbose=1,
         group_size=16,
         n_epochs=10,
-        kl_beta=0.0,  # Set beta to zero, no KL penalty
+        kl_beta=0,  # Set beta to zero, no KL penalty
         clip_range=float("inf"),  # Set clipping factor to infinity for RLOO with IS
     )
-    print("Starting Outcome RLOO with IS training...")
+
+    print("Starting Outcome GRPO without clipping and KL training...")
     start_time = time.time()
     outcome_rloo_is_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=outcome_rloo_is_eval_callback)
     end_time = time.time()
-    print(f"Outcome RLOO with IS training completed in {(end_time - start_time):.2f} seconds.")
+    print(f"Outcome GRPO without clipping and KL training completed in {(end_time - start_time):.2f} seconds.")
 
-if TRAIN_PROCESS_RLOO_WITH_KL_IS:
+if TRAIN_PROCESS_GRPO_NO_CLIPPING:
     # Process supervision RLOO with KL penalty and Importance Sampling
     process_rloo_kl_is_vec_env = make_vec_env("CartPole-v1", n_envs=1)
     process_rloo_kl_is_eval_env = make_vec_env("CartPole-v1", n_envs=1)
 
     process_rloo_kl_is_eval_callback = EvalCallback(
         process_rloo_kl_is_eval_env,
-        log_path=EVAL_PATH + "process_rloo_kl_is/",
+        log_path=EVAL_PATH + "process_grpo_no_clipping/",
         eval_freq=EVAL_FREQ,
         n_eval_episodes=N_EVAL_EPISODES,
         deterministic=True,
         render=False,
         verbose=0,
     )
-
     process_rloo_kl_is_model = GRPO(
         "GroupPolicy",
         process_rloo_kl_is_vec_env,
-        verbose=0,
+        verbose=1,
         group_size=16,
         n_epochs=10,
         clip_range=float("inf"),  # Set clipping factor to infinity for RLOO with KL penalty and IS
     )
-    print("Starting Process RLOO with KL and IS training...")
+
+    print("Starting Process GRPO without clipping training...")
     start_time = time.time()
     process_rloo_kl_is_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=process_rloo_kl_is_eval_callback)
     end_time = time.time()
-    print(f"Process RLOO with KL and IS training completed in {(end_time - start_time):.2f} seconds.")
+    print(f"Process without clipping training completed in {(end_time - start_time):.2f} seconds.")
 
-if TRAIN_OUTCOME_RLOO_WITH_KL_IS:
+if TRAIN_OUTCOME_GRPO_NO_CLIPPING:
     # Outcome supvervision RLOO with KL penalty and Importance Sampling
     outcome_rloo_kl_is_vec_env = make_vec_env("CartPole-v1", n_envs=1)
     outcome_rloo_kl_is_eval_env = make_vec_env("CartPole-v1", n_envs=1)
 
     outcome_rloo_kl_is_eval_callback = EvalCallback(
         outcome_rloo_kl_is_eval_env,
-        log_path=EVAL_PATH + "outcome_rloo_kl_is/",
+        log_path=EVAL_PATH + "outcome_grpo_no_clipping/",
         eval_freq=EVAL_FREQ,
         n_eval_episodes=N_EVAL_EPISODES,
         deterministic=True,
         render=False,
         verbose=0,
     )
-
     outcome_rloo_kl_is_model = GRPO(
         "GroupPolicy",
         outcome_rloo_kl_is_vec_env,
-        verbose=0,
+        verbose=1,
         group_size=16,
         n_epochs=10,
         group_rollout_buffer_class=OutcomeGroupBuffer,
         clip_range=float("inf"),  # Set clipping factor to infinity for RLOO with KL penalty and IS
     )
-    print("Starting Outcome RLOO with KL and IS training...")
+
+    print("Starting Outcome GRPO without clipping training...")
     start_time = time.time()
     outcome_rloo_kl_is_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=outcome_rloo_kl_is_eval_callback)
     end_time = time.time()
-    print(f"Outcome RLOO with KL and IS training completed in {(end_time - start_time):.2f} seconds.")
+    print(f"Outcome without clipping training completed in {(end_time - start_time):.2f} seconds.")
 
-if TRAIN_PROCESS_RLOO_WITH_CLIPPING:
+if TRAIN_PROCESS_GRPO_NO_KL:
     # Process supervision RLOO with clipping
     process_rloo_clipping_vec_env = make_vec_env("CartPole-v1", n_envs=1)
     process_rloo_clipping_eval_env = make_vec_env("CartPole-v1", n_envs=1)
 
     process_rloo_clipping_eval_callback = EvalCallback(
         process_rloo_clipping_eval_env,
-        log_path=EVAL_PATH + "process_rloo_clipping/",
+        log_path=EVAL_PATH + "process_grpo_no_kl/",
         eval_freq=EVAL_FREQ,
         n_eval_episodes=N_EVAL_EPISODES,
         deterministic=True,
         render=False,
         verbose=0,
     )
-
     process_rloo_clipping_model = GRPO(
         "GroupPolicy",
         process_rloo_clipping_vec_env,
-        verbose=0,
+        verbose=1,
         group_size=16,
         n_epochs=10,
-        kl_beta=0.0,  # No KL penalty for clipping
+        kl_beta=0,  # No KL penalty for clipping
     )
-    print("Starting Process RLOO with Clipping training...")
+
+    print("Starting Process GRPO without KL training...")
     start_time = time.time()
     process_rloo_clipping_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=process_rloo_clipping_eval_callback)
     end_time = time.time()
-    print(f"Process RLOO with Clipping training completed in {(end_time - start_time):.2f} seconds.")
+    print(f"Process GRPO without KL training completed in {(end_time - start_time):.2f} seconds.")
 
-if TRAIN_OUTCOME_RLOO_WITH_CLIPPING:
+if TRAIN_OUTCOME_GRPO_NO_KL:
     # Outcome supervision RLOO with clipping
     outcome_rloo_clipping_vec_env = make_vec_env("CartPole-v1", n_envs=1)
     outcome_rloo_clipping_eval_env = make_vec_env("CartPole-v1", n_envs=1)
 
     outcome_rloo_clipping_eval_callback = EvalCallback(
         outcome_rloo_clipping_eval_env,
-        log_path=EVAL_PATH + "outcome_rloo_clipping/",
+        log_path=EVAL_PATH + "outcome_grpo_no_kl/",
         eval_freq=EVAL_FREQ,
         n_eval_episodes=N_EVAL_EPISODES,
         deterministic=True,
         render=False,
         verbose=0,
     )
-
     outcome_rloo_clipping_model = GRPO(
         "GroupPolicy",
         outcome_rloo_clipping_vec_env,
-        verbose=0,
+        verbose=1,
         group_size=16,
         n_epochs=10,
-        kl_beta=0.0,
+        kl_beta=0,
         group_rollout_buffer_class=OutcomeGroupBuffer,
     )
-    print("Starting Outcome RLOO with Clipping training...")
+
+    print("Starting Outcome GRPO without KL training...")
     start_time = time.time()
     outcome_rloo_clipping_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=outcome_rloo_clipping_eval_callback)
     end_time = time.time()
-    print(f"Outcome RLOO with Clipping training completed in {(end_time - start_time):.2f} seconds.")
+    print(f"Outcome GRPO without KL training completed in {(end_time - start_time):.2f} seconds.")
 
 if TRAIN_PROCESS_GRPO:
     # Process supevision GRPO
@@ -362,6 +372,7 @@ if TRAIN_PROCESS_GRPO:
         group_size=16,
         n_epochs=10,
     )
+
     print("Starting Process GRPO training...")
     start_time = time.time()
 
@@ -419,6 +430,7 @@ if TRAIN_OUTCOME_GRPO:
     end_time = time.time()
     print(f"Outcome GRPO training completed in {(end_time - start_time):.2f} seconds.")
 
+# --- PPO ---
 if TRAIN_PPO:
     # Standard PPO
     ppo_vec_env = make_vec_env("CartPole-v1", n_envs=1)
@@ -436,7 +448,7 @@ if TRAIN_PPO:
     ppo_model = PPO(
         "MlpPolicy",
         ppo_vec_env,
-        verbose=0,
+        verbose=1,
         n_epochs=10,
     )
 
@@ -447,8 +459,8 @@ if TRAIN_PPO:
     print("Starting PPO profiling...")
     pr.enable()  # Start profiling
 
-    # ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=ppo_eval_callback)
-    ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+    ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=ppo_eval_callback)
+    # ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
 
     pr.disable()
     print("PPO profiling completed. Saving profiling data...")
@@ -461,7 +473,7 @@ if TRAIN_PPO:
 if PLOT_EVAL_RESULTS:
     # --- RLOO ---
     if PLOT_OUTCOME_RLOO:
-        data = np.load(EVAL_PATH + "rloo/evaluations.npz")
+        data = np.load(EVAL_PATH + "outcome_rloo/evaluations.npz")
         timesteps = data["timesteps"]
         timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
         results = data["results"]
@@ -470,11 +482,11 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="RLOO Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_OUTCOME_RLOO_NO_GRAD_CLIPPING:
-        data = np.load(EVAL_PATH + "pure_rloo_no_grad_clipping/evaluations.npz")
+        data = np.load(EVAL_PATH + "outcome_rloo_no_grad_clipping/evaluations.npz")
         timesteps = data["timesteps"]
         timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
         results = data["results"]
@@ -483,7 +495,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Pure RLOO no grad clipping Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome RLOO no grad clipping Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_OUTCOME_RLOO_WITH_KL:
@@ -500,8 +512,8 @@ if PLOT_EVAL_RESULTS:
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     # --- GRPO ---
-    if PLOT_PROCESS_RLOO_WITH_IS:
-        data = np.load(EVAL_PATH + "process_rloo_is/evaluations.npz")
+    if PLOT_PROCESS_GRPO_NO_CLIPPING_NO_KL:
+        data = np.load(EVAL_PATH + "process_grpo_no_clipping_no_kl/evaluations.npz")
         timesteps = data["timesteps"]
         timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
         results = data["results"]
@@ -510,11 +522,11 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Process RLOO with IS Reward")
+        plt.plot(timesteps, mean_rewards, label="Process GRPO no clipping no KL Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-    if PLOT_OUTCOME_RLOO_WITH_IS:
-        data = np.load(EVAL_PATH + "outcome_rloo_is/evaluations.npz")
+    if PLOT_OUTCOME_GRPO_NO_CLIPPING_NO_KL:
+        data = np.load(EVAL_PATH + "outcome_grpo_no_clipping_no_kl/evaluations.npz")
         timesteps = data["timesteps"]
         timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
         results = data["results"]
@@ -523,11 +535,11 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with IS Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome GRPO no clipping no KL Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-    if PLOT_PROCESS_RLOO_WITH_KL_IS:
-        data = np.load(EVAL_PATH + "process_rloo_kl_is/evaluations.npz")
+    if PLOT_PROCESS_GRPO_NO_CLIPPING:
+        data = np.load(EVAL_PATH + "process_grpo_no_clipping/evaluations.npz")
         timesteps = data["timesteps"]
         timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
         results = data["results"]
@@ -536,11 +548,11 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Process RLOO with KL and IS Reward")
+        plt.plot(timesteps, mean_rewards, label="Process GRPO no clipping Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-    if PLOT_OUTCOME_RLOO_WITH_KL_IS:
-        data = np.load(EVAL_PATH + "outcome_rloo_kl_is/evaluations.npz")
+    if PLOT_OUTCOME_GRPO_NO_CLIPPING:
+        data = np.load(EVAL_PATH + "outcome_grpo_no_clipping/evaluations.npz")
         timesteps = data["timesteps"]
         timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
         results = data["results"]
@@ -549,11 +561,11 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with KL and IS Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome GRPO no clipping Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-    if PLOT_PROCESS_RLOO_WITH_CLIPPING:
-        data = np.load(EVAL_PATH + "process_rloo_clipping/evaluations.npz")
+    if PLOT_PROCESS_GRPO_NO_KL:
+        data = np.load(EVAL_PATH + "process_grpo_no_kl/evaluations.npz")
         timesteps = data["timesteps"]
         timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
         results = data["results"]
@@ -562,11 +574,11 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Process RLOO with Clipping Reward")
+        plt.plot(timesteps, mean_rewards, label="Process GRPO no KL Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
-    if PLOT_OUTCOME_RLOO_WITH_CLIPPING:
-        data = np.load(EVAL_PATH + "outcome_rloo_clipping/evaluations.npz")
+    if PLOT_OUTCOME_GRPO_NO_KL:
+        data = np.load(EVAL_PATH + "outcome_grpo_no_kl/evaluations.npz")
         timesteps = data["timesteps"]
         timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
         results = data["results"]
@@ -575,7 +587,7 @@ if PLOT_EVAL_RESULTS:
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
 
-        plt.plot(timesteps, mean_rewards, label="Outcome RLOO with Clipping Reward")
+        plt.plot(timesteps, mean_rewards, label="Outcome GRPO no KL Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
     if PLOT_PROCESS_GRPO:
