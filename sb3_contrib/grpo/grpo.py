@@ -192,18 +192,15 @@ class GRPO(BaseAlgorithm):
     def collect_group_rollouts(self, env: VecEnv, callback: BaseCallback, group_size: int):
         """Collect a group of rollouts from the current policy and returns it as a group buffer."""
         assert self.group_rollout_buffer is not None, "Group rollout buffer must be initialized before collecting rollouts."
-        assert self._last_obs is not None, "No previous observation was provided."
 
         # Switch to eval mode (this affects batch norm / dropout)
         self.policy.set_training_mode(False)
 
-        initial_obs = self._last_obs  # store initial observation to start rollouts from the same state
-        initial_env = deepcopy(env)
+        random_seed = np.random.randint(0, 2**32 - 1)
 
         for _ in range(group_size):
-            # TODO is there a better option than deepcopying?
-            env = deepcopy(initial_env)  # copying to start rollouts from the same state
-            self._last_obs = initial_obs
+            env.seed(random_seed)
+            self._last_obs = env.reset()  # always reset envs to the same state in the same group
 
             traj = Trajectory(device=self.device, gamma=self.gamma)
 
