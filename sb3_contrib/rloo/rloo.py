@@ -71,8 +71,6 @@ class RLOO(GRPO):
     def train(self) -> None:
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
-        # Compute current clip range
-        clip_range = self.clip_range(self._current_progress_remaining)
 
         pg_losses, kl_losses, entropy_losses, losses = self._train_rloo()
 

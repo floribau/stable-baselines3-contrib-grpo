@@ -3,7 +3,6 @@
 import sys
 import time
 import warnings
-from copy import deepcopy
 from typing import Any, ClassVar, TypeVar
 
 import numpy as np
