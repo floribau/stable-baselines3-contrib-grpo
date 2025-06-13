@@ -1,5 +1,6 @@
 """Main module to run GRPO on CartPole-v1 environment."""
 import time
+import os
 from datetime import datetime
 import warnings
 import cProfile
@@ -19,7 +20,7 @@ ENV_NAME = "LunarLander-v3"
 N_TRAINING_TIMESTEPS = 100_000
 
 N_EVAL_EPISODES = 4
-EVAL_FREQ = 2000
+EVAL_FREQ = 5000
 MODELS_PATH = f"./eval/models/{ENV_NAME}/"
 EVAL_LOGS_PATH = f"./eval/eval_logs/{ENV_NAME}/"
 EVAL_PLOTS_PATH = f"./eval/eval_plots/{ENV_NAME}/"
@@ -48,7 +49,7 @@ TRAIN_PPO = True
 
 # --- Plotting options ---
 # --- RLOO ---
-PLOT_OUTCOME_RLOO = False
+PLOT_OUTCOME_RLOO = True
 PLOT_OUTCOME_RLOO_NO_GRAD_CLIPPING = False
 PLOT_OUTCOME_RLOO_WITH_KL = False
 # --- GRPO ---
@@ -58,8 +59,8 @@ PLOT_PROCESS_GRPO_NO_CLIPPING = False
 PLOT_OUTCOME_GRPO_NO_CLIPPING = False
 PLOT_PROCESS_GRPO_NO_KL = False
 PLOT_OUTCOME_GRPO_NO_KL = False
-PLOT_PROCESS_GRPO = False
-PLOT_OUTCOME_GRPO = False
+PLOT_PROCESS_GRPO = True
+PLOT_OUTCOME_GRPO = True
 # --- PPO ---
 PLOT_PPO = True
 
@@ -498,7 +499,7 @@ if TRAIN_PPO:
 
     # NOTE only for visual inspection
     obs = ppo_vec_env.reset()
-    for _ in range(10_000):
+    for _ in range(1000):
         action, _states = ppo_model.predict(obs)
         obs, rewards, dones, info = ppo_vec_env.step(action)
         ppo_vec_env.render("human")
@@ -678,5 +679,6 @@ if PLOT_EVAL_RESULTS:
     plt.grid()
     plt.tight_layout()
     if SAVE_EVAL_PLOT:
+        os.makedirs(EVAL_PLOTS_PATH, exist_ok=True)
         plt.savefig(f"{EVAL_PLOTS_PATH}eval_performance_{timestamp}.png")
     plt.show()

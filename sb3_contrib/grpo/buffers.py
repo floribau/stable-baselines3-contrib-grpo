@@ -15,6 +15,7 @@ class SupervisionType(Enum):
 
     OUTCOME = 0
     PROCESS = 1
+    RLOO_OUTCOME = 2
 
     def is_outcome_supervision(self) -> bool:
         """Returns True if the supervision type is outcome supervision."""
@@ -209,12 +210,43 @@ class TimestepGroupBuffer(GroupBuffer):
             return advantages
 
 
+class ProcessGroupBuffer(GroupBuffer):
+    """
+    TODO doc
+    """
+    # TODO make all compute_returns and get_advantages use the same datatypes
+    def _maybe_compute_returns(self):
+        if self.returns is None:
+            self.returns = [th.tensor(traj.rewards, dtype=th.float32) for traj in self.trajectories]
+
+    def get_advantages(self) -> list[th.Tensor]:
+        self._maybe_compute_returns()
+
+        all_returns = th.cat(self.returns)
+        mean_returns = all_returns.mean()
+        std_returns = all_returns.std()
+
+        normalized_returns = [traj_returns - mean_returns for traj_returns in self.returns]
+        if self.scale_rewards:
+            normalized_returns = [traj_returns / (std_returns + 1e-8) for traj_returns in normalized_returns]
+
+        advantages = [
+            th.flip(th.cumsum(th.flip(r, dims=[0]), dim=0), dims=[0])
+            for r in normalized_returns
+        ]  # advantage is return to go of normalized returns at every step t
+        return advantages
+
+
+
+
 class OutcomeGroupBuffer(GroupBuffer):
     """
     Buffer class containing a group of trajectories for a single GRPO update.
     The buffer implements outcome supervision, where the advantage is computed as the trajectory reward relativ
     to the mean trajectory reward of all trajectories in the group.
     The trajectory reward is the sum of all rewards in the trajectory.
+
+    This implementation conforms to Outcome Supervision in DeepSeekMath (https://arxiv.org/pdf/2402.03300).
     """
 
     def __init__(
@@ -233,7 +265,7 @@ class OutcomeGroupBuffer(GroupBuffer):
         if self.returns is None:
             self.returns = np.array([sum(traj.rewards) for traj in self.trajectories])
 
-    def get_advantages(self) -> np.ndarray:
+    def get_advantages(self) -> np.ndarray:  # TODO should be list of (scalar) tensors
         self._maybe_compute_returns()
         mean_return = np.mean(self.returns)
         std_return = np.std(self.returns)
@@ -243,7 +275,7 @@ class OutcomeGroupBuffer(GroupBuffer):
             advantages /= std_return + 1e-8  # avoid division by zero
         return advantages
 
-    def get_leave_one_out_advantages(self) -> np.ndarray:
+    def get_leave_one_out_advantages(self) -> np.ndarray:   # TODO should be list of (scalar) tensors
         """
         TODO doc
         """
