@@ -83,7 +83,6 @@ class RLOO(GRPO):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        self.logger.record("train/clip_range", clip_range)
 
     def _train_rloo(self) -> tuple[list, list, list, list]:
         """
