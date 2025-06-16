@@ -1,4 +1,4 @@
-"""GRPO module written by ChatGPT"""
+"""Module containing the GRPO class"""
 
 import sys
 import time
@@ -36,15 +36,15 @@ class GRPO(BaseAlgorithm):
         of the current progress remaining (from 1 to 0)
     :param group_size: The number of trajectories to collect in a group.
     :param n_epochs: Number of epoch when optimizing the surrogate loss
-    :param gamma: Discount factor. In stanrard GRPO, it is set to 1.
+    :param gamma: Discount factor. In standard GRPO, it is set to 1.
     :param clip_range: Clipping parameter, it can be a function of the current progress
         remaining (from 1 to 0).
-    :param batch_group_updates: TODO
-    :param use_importance_sampling: Whether to use importance sampling for the policy gradient loss.
-        If ``False``, TODO
+    :param batch_group_updates: Whether the policy should be updated with batch updates.
+        If ``True``, one batch update is performed for the whole group of trajectories.
+        If ``False``, one update is performed per trajectory.
     :param scale_rewards: Whether to scale rewards by the standard deviation during advantage calculation.
     :param kl_beta: KL divergence penalty coefficient for the loss calculation.
-    :param kl_ref_iterations: TODO
+    :param kl_ref_iterations: Number of learning iterations before updating the reference policy for KL divergence penalty.
     :param ent_coef: Entropy coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
@@ -140,7 +140,7 @@ class GRPO(BaseAlgorithm):
 
     def _setup_model(self):
         self._setup_lr_schedule()
-        self.set_random_seed(self.seed)
+        self.set_random_seed(self.seed)  # TODO this needs to be adjusted (not really used for env creation)
 
         if self.group_rollout_buffer_class is None:
             self.group_rollout_buffer_class = GroupBuffer

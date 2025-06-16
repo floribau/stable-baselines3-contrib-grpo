@@ -1,5 +1,5 @@
 """
-TODO module doc
+Module containing the RLOO class
 """
 
 import numpy as np
@@ -12,7 +12,41 @@ from sb3_contrib.grpo.grpo import GRPO
 
 class RLOO(GRPO):
     """
-    TODO doc
+    Reinforce Leave-One-Out (RLOO)
+
+    Paper: https://openreview.net/pdf?id=r1lgTGL5DE
+
+    Introduction to RLOO: https://huggingface.co/blog/putting_rl_back_in_rlhf_with_rloo
+
+    :param policy: The policy model to use (MlpPolicy, ...)
+    :param env: The environment to learn from (if registered in Gym, can be str)
+    :param learning_rate: The learning rate, it can be a function
+        of the current progress remaining (from 1 to 0)
+    :param group_size: The number of trajectories to collect in a group.
+    :param gamma: Discount factor. Usually, it is set to 1.
+    :param scale_rewards: Whether to scale rewards by the standard deviation during advantage calculation.
+    :param kl_beta: KL divergence penalty coefficient for the loss calculation.
+    :param kl_ref_iterations: Number of learning iterations before updating the reference policy for KL divergence penalty.
+    :param ent_coef: Entropy coefficient for the loss calculation
+    :param max_grad_norm: The maximum value for the gradient clipping
+    :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
+        instead of action noise exploration (default: False)
+    :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
+        Default: -1 (only sample at the beginning of the rollout)
+    :param group_rollout_buffer_class: Group Rollout buffer class to use. If ``None``, it will be automatically selected.
+    :param group_rollout_buffer_kwargs: Keyword arguments to pass to the group rollout buffer on creation
+    :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
+        the reported success rate, mean episode length, and mean reward over
+    :param tensorboard_log: the log location for tensorboard (if None, no logging)
+    :param monitor_wrapper: When creating an environment, whether to wrap it
+        or not in a Monitor wrapper.
+    :param policy_kwargs: additional arguments to be passed to the policy on creation. See :ref:`ppo_policies`
+    :param verbose: Verbosity level: 0 for no output, 1 for info messages (such as device or wrappers used), 2 for
+        debug messages
+    :param seed: Seed for the pseudo random generators
+    :param device: Device (cpu, cuda, ...) on which the code should be run.
+        Setting it to auto, the code will be run on the GPU if possible.
+    :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
     def __init__(
@@ -85,10 +119,7 @@ class RLOO(GRPO):
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
 
     def _train_rloo(self) -> tuple[list, list, list, list]:
-        """
-        TODO doc
-        NOTE this is always outcome supervision (is it?)
-        """
+        # RLOO outcome supervision update method
         self.policy.set_training_mode(False)
         advantages = self.group_rollout_buffer.get_leave_one_out_advantages()  # shape: (n_trajectories, )
         grads, log_probs_sums, entropies = [], [], []

@@ -96,11 +96,8 @@ class Trajectory:
 class GroupBuffer(BaseBuffer):
     """
     Buffer class containing a group of trajectories for a single GRPO update.
-    The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep relativ
+    The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep relative
     to the mean return-to-go of all timesteps in the group.
-
-    # TODO apply this closer to DeepSeekMath, likely needs another Gym env
-    # IDEA check PPO implementation, how they use the per-step reward
     """
 
     trajectories: list[Trajectory]
@@ -150,7 +147,8 @@ class GroupBuffer(BaseBuffer):
 
     def get_advantages(self) -> list[th.Tensor]:
         """
-        Returns a list of advantage tensors relative to the group.
+        Returns a list of advantage tensors relative to the group. This is the returns of all trajectories are
+        subtracted as a baseline and possibly the returns are scaled by the standard deviation.
         Advantage at index t in a tensor i corresponds to the advantage for timestep t in trajectory i.
         """
         assert len(self.trajectories) > 0, "Cannot compute advantages: No trajectories in the buffer."
@@ -178,7 +176,7 @@ class GroupBuffer(BaseBuffer):
 class TimestepGroupBuffer(GroupBuffer):
     """
     Buffer class containing a group of trajectories for a single GRPO update.
-    The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep t relativ
+    The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep t relative
     to the mean return-to-go of all trajectories at timestep t in the group.
 
     BUG this version doesn't work because the update signal is too small.
@@ -212,8 +210,13 @@ class TimestepGroupBuffer(GroupBuffer):
 
 class ProcessGroupBuffer(GroupBuffer):
     """
-    TODO doc
+    Buffer class containing a group of trajectories for a single GRPO update.
+    The buffer implements process supervision, where the advantage is computed as the returns-to-go with the per-step rewards
+    normalized by the average per-step reward of all steps in the trajectory.
+
+    This implementation conforms to Process Supervision in DeepSeekMath (https://arxiv.org/pdf/2402.03300).
     """
+
     # TODO make all compute_returns and get_advantages use the same datatypes
     def _maybe_compute_returns(self):
         if self.returns is None:
@@ -231,18 +234,15 @@ class ProcessGroupBuffer(GroupBuffer):
             normalized_returns = [traj_returns / (std_returns + 1e-8) for traj_returns in normalized_returns]
 
         advantages = [
-            th.flip(th.cumsum(th.flip(r, dims=[0]), dim=0), dims=[0])
-            for r in normalized_returns
-        ]  # advantage is return to go of normalized returns at every step t
+            th.flip(th.cumsum(th.flip(r, dims=[0]), dim=0), dims=[0]) for r in normalized_returns
+        ]  # advantage at every step t is return to go of normalized returns starting from t
         return advantages
-
-
 
 
 class OutcomeGroupBuffer(GroupBuffer):
     """
     Buffer class containing a group of trajectories for a single GRPO update.
-    The buffer implements outcome supervision, where the advantage is computed as the trajectory reward relativ
+    The buffer implements outcome supervision, where the advantage is computed as the trajectory reward relative
     to the mean trajectory reward of all trajectories in the group.
     The trajectory reward is the sum of all rewards in the trajectory.
 
@@ -262,10 +262,18 @@ class OutcomeGroupBuffer(GroupBuffer):
         self.supervision_type = SupervisionType.OUTCOME
 
     def _maybe_compute_returns(self):
+        """
+        See super._maybe_compute_returns() for full documentation.
+        This works similarly, but computes per-trajectories returns instead of per-step returns.
+        """
         if self.returns is None:
             self.returns = np.array([sum(traj.rewards) for traj in self.trajectories])
 
     def get_advantages(self) -> np.ndarray:  # TODO should be list of (scalar) tensors
+        """
+        See super.get_advantages() for full documentation.
+        This works similarly, but computes per-trajectory advantages instead of per-step advantages.
+        """
         self._maybe_compute_returns()
         mean_return = np.mean(self.returns)
         std_return = np.std(self.returns)
@@ -275,9 +283,10 @@ class OutcomeGroupBuffer(GroupBuffer):
             advantages /= std_return + 1e-8  # avoid division by zero
         return advantages
 
-    def get_leave_one_out_advantages(self) -> np.ndarray:   # TODO should be list of (scalar) tensors
+    def get_leave_one_out_advantages(self) -> np.ndarray:  # TODO should be list of (scalar) tensors
         """
-        TODO doc
+        Similar to get_advantages() but uses a leave-one-out baseline, where the returns of all trajectories except
+        trajectory T are used to compute the baseline for trajectory T.
         """
         assert len(self.trajectories) > 0
         self._maybe_compute_returns()
