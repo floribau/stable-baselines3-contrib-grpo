@@ -9,7 +9,7 @@ import torch as th
 from gymnasium import spaces
 from stable_baselines3.common.type_aliases import MaybeCallback
 
-from sb3_contrib.common.buffers import OutcomeGroupBuffer
+from sb3_contrib.common.buffers import DeepSeekOutcomeGroupBuffer
 from sb3_contrib.grpo.grpo import GRPO
 
 SelfRLOO = TypeVar("SelfRLOO", bound="RLOO")
@@ -67,7 +67,7 @@ class RLOO(GRPO):
         max_grad_norm=0.5,
         use_sde=False,
         sde_sample_freq=-1,
-        group_rollout_buffer_class=OutcomeGroupBuffer,
+        group_rollout_buffer_class=DeepSeekOutcomeGroupBuffer,
         group_rollout_buffer_kwargs=None,
         stats_window_size=100,
         tensorboard_log=None,
