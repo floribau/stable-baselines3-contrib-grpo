@@ -14,13 +14,16 @@ from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.ppo import PPO
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.rloo.rloo import RLOO
-from sb3_contrib.common.buffers import OutcomeGroupBuffer, ProcessGroupBuffer
+from sb3_contrib.common.buffers import GroupBuffer, DeepSeekOutcomeGroupBuffer, DeepSeekProcessGroupBuffer, ProcessGroupBuffer, SupervisionType
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
 def make_custom_env():
     """Returns method creating gym envs with custom options."""
     return gym.make(ENV_NAME,render_mode="rgb_array", is_slippery=False)
+
+PROCESS_SUPERVISION_BUFFER_CLASS: type[GroupBuffer] = ProcessGroupBuffer
+OUTCOME_SUPERVISION_BUFFER_CLASS: type[GroupBuffer] = DeepSeekOutcomeGroupBuffer
 
 ENV_NAME = "CartPole-v1"
 ENV_CALLABLE = ENV_NAME
@@ -100,6 +103,7 @@ if TRAIN_OUTCOME_RLOO:
     outcome_rloo_model = RLOO(
         "GroupPolicy",
         outcome_rloo_vec_env,
+        group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         kl_beta=0,  # no KL penalty in standard RLOO
@@ -147,6 +151,7 @@ if TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING:
     outcome_rloo_no_grad_clipping_model = RLOO(
         "GroupPolicy",
         outcome_rloo_no_grad_clipping_vec_env,
+        group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         kl_beta=0,  # no KL penalty in standard RLOO
@@ -193,6 +198,7 @@ if TRAIN_OUTCOME_RLOO_WITH_KL:
     outcome_rloo_kl_model = RLOO(
         "GroupPolicy",
         outcome_rloo_kl_vec_env,
+        group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         kl_ref_iterations=10,
         verbose=1,
         group_size=16,
@@ -232,6 +238,7 @@ if TRAIN_PROCESS_GRPO_NO_CLIPPING_NO_KL:
     process_grpo_no_clipping_no_kl_model = GRPO(
         "GroupPolicy",
         process_grpo_no_clipping_no_kl_vec_env,
+        group_rollout_buffer_class=PROCESS_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         n_epochs=10,
@@ -274,6 +281,8 @@ if TRAIN_OUTCOME_GRPO_NO_CLIPPING_NO_KL:
     outcome_grpo_no_clipping_no_kl_model = GRPO(
         "GroupPolicy",
         outcome_grpo_no_clipping_no_kl_vec_env,
+        supervision_type=SupervisionType.OUTCOME,
+        group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         n_epochs=10,
@@ -316,6 +325,7 @@ if TRAIN_PROCESS_GRPO_NO_CLIPPING:
     process_grpo_no_clipping_model = GRPO(
         "GroupPolicy",
         process_grpo_no_clipping_vec_env,
+        group_rollout_buffer_class=PROCESS_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         n_epochs=10,
@@ -355,10 +365,11 @@ if TRAIN_OUTCOME_GRPO_NO_CLIPPING:
     outcome_grpo_no_clipping_model = GRPO(
         "GroupPolicy",
         outcome_grpo_no_clipping_vec_env,
+        supervision_type=SupervisionType.OUTCOME,
+        group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         n_epochs=10,
-        group_rollout_buffer_class=OutcomeGroupBuffer,
         clip_range=float("inf"),  # Set clipping factor to infinity for RLOO with KL penalty and IS
     )
 
@@ -391,6 +402,7 @@ if TRAIN_PROCESS_GRPO_NO_KL:
     process_grpo_no_kl_model = GRPO(
         "GroupPolicy",
         process_grpo_no_kl_vec_env,
+        group_rollout_buffer_class=PROCESS_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         n_epochs=10,
@@ -426,11 +438,12 @@ if TRAIN_OUTCOME_GRPO_NO_KL:
     outcome_grpo_no_kl_model = GRPO(
         "GroupPolicy",
         outcome_grpo_no_kl_vec_env,
+        supervision_type=SupervisionType.OUTCOME,
+        group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         n_epochs=10,
         kl_beta=0,
-        group_rollout_buffer_class=OutcomeGroupBuffer,
     )
 
     print("Starting Outcome GRPO without KL training...")
@@ -462,6 +475,7 @@ if TRAIN_PROCESS_GRPO:
     process_grpo_model = GRPO(
         "GroupPolicy",
         process_grpo_vec_env,
+        group_rollout_buffer_class=PROCESS_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         n_epochs=10,
@@ -505,7 +519,7 @@ if TRAIN_DEEPSEEK_PROCESS_GRPO:
     process_grpo_model = GRPO(
         "GroupPolicy",
         process_grpo_vec_env,
-        group_rollout_buffer_class=ProcessGroupBuffer,
+        group_rollout_buffer_class=DeepSeekProcessGroupBuffer,
         verbose=1,
         group_size=16,
         n_epochs=10,
@@ -556,10 +570,11 @@ if TRAIN_OUTCOME_GRPO:
     outcome_grpo_model = GRPO(
         "GroupPolicy",
         outcome_grpo_vec_env,
+        supervision_type=SupervisionType.OUTCOME,
+        group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
         n_epochs=10,
-        group_rollout_buffer_class=OutcomeGroupBuffer,
     )
 
     print("Starting Outcome GRPO training...")

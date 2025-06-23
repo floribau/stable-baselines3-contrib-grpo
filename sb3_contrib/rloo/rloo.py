@@ -9,10 +9,11 @@ import torch as th
 from gymnasium import spaces
 from stable_baselines3.common.type_aliases import MaybeCallback
 
-from sb3_contrib.common.buffers import DeepSeekOutcomeGroupBuffer
+from sb3_contrib.common.buffers import DeepSeekOutcomeGroupBuffer, SupervisionType
 from sb3_contrib.grpo.grpo import GRPO
 
 SelfRLOO = TypeVar("SelfRLOO", bound="RLOO")
+
 
 class RLOO(GRPO):
     """
@@ -94,6 +95,7 @@ class RLOO(GRPO):
             max_grad_norm=max_grad_norm,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
+            supervision_type=SupervisionType.OUTCOME,  # RLOO uses outcome supervision
             group_rollout_buffer_class=group_rollout_buffer_class,
             group_rollout_buffer_kwargs=group_rollout_buffer_kwargs,
             stats_window_size=stats_window_size,
@@ -110,7 +112,7 @@ class RLOO(GRPO):
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
 
-        pg_losses, kl_losses, entropy_losses, losses = self._train()
+        pg_losses, kl_losses, entropy_losses, losses = self._train_rloo()
 
         # Logs
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
@@ -122,7 +124,7 @@ class RLOO(GRPO):
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
 
-    def _train(self) -> tuple[list, list, list, list]:
+    def _train_rloo(self) -> tuple[list, list, list, list]:
         """
         RLOO training method (outcome supervision by definition).
         """

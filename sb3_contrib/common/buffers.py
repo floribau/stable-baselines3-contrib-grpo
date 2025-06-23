@@ -15,7 +15,6 @@ class SupervisionType(Enum):
 
     OUTCOME = 0
     PROCESS = 1
-    RLOO_OUTCOME = 2
 
     def is_outcome_supervision(self) -> bool:
         """Returns True if the supervision type is outcome supervision."""
@@ -24,10 +23,6 @@ class SupervisionType(Enum):
     def is_process_supervision(self) -> bool:
         """Returns True if the supervision type is process supervision."""
         return self == SupervisionType.PROCESS
-
-    def is_rloo_outcome_supervision(self) -> bool:
-        """Returns True if the supervision type is RLOO outcome supervision."""
-        return self == SupervisionType.RLOO_OUTCOME
 
 
 class Trajectory:
@@ -177,6 +172,7 @@ class TimestepGroupBuffer(GroupBuffer):
 
     BUG this version doesn't work because the update signal is too small.
     """
+
     def __init__(
         self,
         buffer_size: int,
@@ -188,7 +184,6 @@ class TimestepGroupBuffer(GroupBuffer):
     ):
         super().__init__(buffer_size, observation_space, action_space, scale_rewards, device, n_envs)
         self.supervision_type = SupervisionType.PROCESS
-
 
     def _maybe_compute_returns(self):
         if self.returns is None:
@@ -224,6 +219,7 @@ class ProcessGroupBuffer(GroupBuffer):
 
     The idea for this implementation has been taken from Emanuel Ruzak (https://github.com/emparu/PPO-vs-GRPO)
     """
+
     def __init__(
         self,
         buffer_size: int,
@@ -262,6 +258,7 @@ class DeepSeekProcessGroupBuffer(GroupBuffer):
 
     This implementation conforms to Process Supervision in DeepSeekMath (https://arxiv.org/pdf/2402.03300).
     """
+
     def __init__(
         self,
         buffer_size: int,
