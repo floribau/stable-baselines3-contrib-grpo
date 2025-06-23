@@ -5,22 +5,32 @@ from datetime import datetime
 import warnings
 import cProfile
 
+import gymnasium as gym
 import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.ppo import PPO
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.rloo.rloo import RLOO
-from sb3_contrib.grpo.buffers import OutcomeGroupBuffer
+from sb3_contrib.common.buffers import OutcomeGroupBuffer, ProcessGroupBuffer
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
-ENV_NAME = "LunarLander-v3"
+def make_custom_env():
+    """Returns method creating gym envs with custom options."""
+    return gym.make(ENV_NAME,render_mode="rgb_array", is_slippery=False)
+
+ENV_NAME = "CartPole-v1"
+ENV_CALLABLE = ENV_NAME
+NORMALIZE_ENV = False
 N_TRAINING_TIMESTEPS = 100_000
 
 N_EVAL_EPISODES = 4
-EVAL_FREQ = 5000
+EVAL_FREQ = 1_000
+N_RENDER_STEPS = 500
+
 MODELS_PATH = f"./eval/models/{ENV_NAME}/"
 EVAL_LOGS_PATH = f"./eval/eval_logs/{ENV_NAME}/"
 EVAL_PLOTS_PATH = f"./eval/eval_plots/{ENV_NAME}/"
@@ -32,7 +42,7 @@ SAVE_EVAL_PLOT = True
 
 # --- Training options ---
 # --- RLOO ---
-TRAIN_OUTCOME_RLOO = False
+TRAIN_OUTCOME_RLOO = True
 TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING = False
 TRAIN_OUTCOME_RLOO_WITH_KL = False
 # --- GRPO ---
@@ -42,8 +52,9 @@ TRAIN_PROCESS_GRPO_NO_CLIPPING = False
 TRAIN_OUTCOME_GRPO_NO_CLIPPING = False
 TRAIN_PROCESS_GRPO_NO_KL = False
 TRAIN_OUTCOME_GRPO_NO_KL = False
-TRAIN_PROCESS_GRPO = False
-TRAIN_OUTCOME_GRPO = False
+TRAIN_PROCESS_GRPO = True
+TRAIN_DEEPSEEK_PROCESS_GRPO = True
+TRAIN_OUTCOME_GRPO = True
 # --- PPO ---
 TRAIN_PPO = True
 
@@ -60,6 +71,7 @@ PLOT_OUTCOME_GRPO_NO_CLIPPING = False
 PLOT_PROCESS_GRPO_NO_KL = False
 PLOT_OUTCOME_GRPO_NO_KL = False
 PLOT_PROCESS_GRPO = True
+PLOT_DEEPSEEK_PROCESS_GRPO = True
 PLOT_OUTCOME_GRPO = True
 # --- PPO ---
 PLOT_PPO = True
@@ -70,8 +82,11 @@ timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 # --- RLOO ---
 if TRAIN_OUTCOME_RLOO:
     # Vanilla RLOO with outcome supervision
-    outcome_rloo_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    outcome_rloo_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    outcome_rloo_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    outcome_rloo_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        outcome_rloo_vec_env = VecNormalize(outcome_rloo_vec_env, norm_obs=True, norm_reward=False)
+        outcome_rloo_eval_env = VecNormalize(outcome_rloo_eval_env, norm_obs=True, norm_reward=False)
 
     outcome_rloo_eval_callback = EvalCallback(
         outcome_rloo_eval_env,
@@ -110,8 +125,15 @@ if TRAIN_OUTCOME_RLOO:
 
 if TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING:
     # Pure RLOO
-    outcome_rloo_no_grad_clipping_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    outcome_rloo_no_grad_clipping_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    outcome_rloo_no_grad_clipping_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    outcome_rloo_no_grad_clipping_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        outcome_rloo_no_grad_clipping_vec_env = VecNormalize(
+            outcome_rloo_no_grad_clipping_vec_env, norm_obs=True, norm_reward=False
+        )
+        outcome_rloo_no_grad_clipping_eval_env = VecNormalize(
+            outcome_rloo_no_grad_clipping_eval_env, norm_obs=True, norm_reward=False
+        )
 
     outcome_rloo_no_grad_clipping_eval_callback = EvalCallback(
         outcome_rloo_no_grad_clipping_eval_env,
@@ -153,8 +175,11 @@ if TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING:
 
 if TRAIN_OUTCOME_RLOO_WITH_KL:
     # Outcome supervision RLOO with KL penalty
-    outcome_rloo_kl_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    outcome_rloo_kl_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    outcome_rloo_kl_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    outcome_rloo_kl_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        outcome_rloo_kl_vec_env = VecNormalize(outcome_rloo_kl_vec_env, norm_obs=True, norm_reward=False)
+        outcome_rloo_kl_eval_env = VecNormalize(outcome_rloo_kl_eval_env, norm_obs=True, norm_reward=False)
 
     outcome_rloo_kl_eval_callback = EvalCallback(
         outcome_rloo_kl_eval_env,
@@ -185,8 +210,15 @@ if TRAIN_OUTCOME_RLOO_WITH_KL:
 # --- GRPO ---
 if TRAIN_PROCESS_GRPO_NO_CLIPPING_NO_KL:
     # Process supervision RLOO with Importance Sampling
-    process_grpo_no_clipping_no_kl_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    process_grpo_no_clipping_no_kl_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    process_grpo_no_clipping_no_kl_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    process_grpo_no_clipping_no_kl_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        process_grpo_no_clipping_no_kl_vec_env = VecNormalize(
+            process_grpo_no_clipping_no_kl_vec_env, norm_obs=True, norm_reward=False
+        )
+        process_grpo_no_clipping_no_kl_eval_env = VecNormalize(
+            process_grpo_no_clipping_no_kl_eval_env, norm_obs=True, norm_reward=False
+        )
 
     process_grpo_no_clipping_no_kl_eval_callback = EvalCallback(
         process_grpo_no_clipping_no_kl_eval_env,
@@ -220,8 +252,15 @@ if TRAIN_PROCESS_GRPO_NO_CLIPPING_NO_KL:
 
 if TRAIN_OUTCOME_GRPO_NO_CLIPPING_NO_KL:
     # Outcome supervision RLOO with Importance Sampling
-    outcome_grpo_no_clipping_no_kl_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    outcome_grpo_no_clipping_no_kl_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    outcome_grpo_no_clipping_no_kl_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    outcome_grpo_no_clipping_no_kl_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        outcome_grpo_no_clipping_no_kl_vec_env = VecNormalize(
+            outcome_grpo_no_clipping_no_kl_vec_env, norm_obs=True, norm_reward=False
+        )
+        outcome_grpo_no_clipping_no_kl_eval_env = VecNormalize(
+            outcome_grpo_no_clipping_no_kl_eval_env, norm_obs=True, norm_reward=False
+        )
 
     outcome_grpo_no_clipping_no_kl_eval_callback = EvalCallback(
         outcome_grpo_no_clipping_no_kl_eval_env,
@@ -255,8 +294,15 @@ if TRAIN_OUTCOME_GRPO_NO_CLIPPING_NO_KL:
 
 if TRAIN_PROCESS_GRPO_NO_CLIPPING:
     # Process supervision RLOO with KL penalty and Importance Sampling
-    process_grpo_no_clipping_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    process_grpo_no_clipping_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    process_grpo_no_clipping_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    process_grpo_no_clipping_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        process_grpo_no_clipping_vec_env = VecNormalize(
+            process_grpo_no_clipping_vec_env, norm_obs=True, norm_reward=False
+        )
+        process_grpo_no_clipping_eval_env = VecNormalize(
+            process_grpo_no_clipping_eval_env, norm_obs=True, norm_reward=False
+        )
 
     process_grpo_no_clipping_eval_callback = EvalCallback(
         process_grpo_no_clipping_eval_env,
@@ -287,8 +333,15 @@ if TRAIN_PROCESS_GRPO_NO_CLIPPING:
 
 if TRAIN_OUTCOME_GRPO_NO_CLIPPING:
     # Outcome supvervision RLOO with KL penalty and Importance Sampling
-    outcome_grpo_no_clipping_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    outcome_grpo_no_clipping_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    outcome_grpo_no_clipping_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    outcome_grpo_no_clipping_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        outcome_grpo_no_clipping_vec_env = VecNormalize(
+            outcome_grpo_no_clipping_vec_env, norm_obs=True, norm_reward=False
+        )
+        outcome_grpo_no_clipping_eval_env = VecNormalize(
+            outcome_grpo_no_clipping_eval_env, norm_obs=True, norm_reward=False
+        )
 
     outcome_grpo_no_clipping_eval_callback = EvalCallback(
         outcome_grpo_no_clipping_eval_env,
@@ -320,8 +373,11 @@ if TRAIN_OUTCOME_GRPO_NO_CLIPPING:
 
 if TRAIN_PROCESS_GRPO_NO_KL:
     # Process supervision RLOO with clipping
-    process_grpo_no_kl_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    process_grpo_no_kl_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    process_grpo_no_kl_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    process_grpo_no_kl_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        process_grpo_no_kl_vec_env = VecNormalize(process_grpo_no_kl_vec_env, norm_obs=True, norm_reward=False)
+        process_grpo_no_kl_eval_env = VecNormalize(process_grpo_no_kl_eval_env, norm_obs=True, norm_reward=False)
 
     process_grpo_no_kl_eval_callback = EvalCallback(
         process_grpo_no_kl_eval_env,
@@ -352,8 +408,11 @@ if TRAIN_PROCESS_GRPO_NO_KL:
 
 if TRAIN_OUTCOME_GRPO_NO_KL:
     # Outcome supervision RLOO with clipping
-    outcome_grpo_no_kl_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    outcome_grpo_no_kl_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    outcome_grpo_no_kl_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    outcome_grpo_no_kl_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        outcome_grpo_no_kl_vec_env = VecNormalize(outcome_grpo_no_kl_vec_env, norm_obs=True, norm_reward=False)
+        outcome_grpo_no_kl_eval_env = VecNormalize(outcome_grpo_no_kl_eval_env, norm_obs=True, norm_reward=False)
 
     outcome_grpo_no_kl_eval_callback = EvalCallback(
         outcome_grpo_no_kl_eval_env,
@@ -385,8 +444,11 @@ if TRAIN_OUTCOME_GRPO_NO_KL:
 
 if TRAIN_PROCESS_GRPO:
     # Process supevision GRPO
-    process_grpo_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    process_grpo_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    process_grpo_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    process_grpo_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        process_grpo_vec_env = VecNormalize(process_grpo_vec_env, norm_obs=True, norm_reward=False)
+        process_grpo_eval_env = VecNormalize(process_grpo_eval_env, norm_obs=True, norm_reward=False)
 
     process_grpo_eval_callback = EvalCallback(
         process_grpo_eval_env,
@@ -423,10 +485,64 @@ if TRAIN_PROCESS_GRPO:
     end_time = time.time()
     print(f"Process GRPO training completed in {(end_time - start_time):.2f} seconds.")
 
+if TRAIN_DEEPSEEK_PROCESS_GRPO:
+    # Process supevision GRPO conforming to DeepSeekMath paper
+    process_grpo_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    process_grpo_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        process_grpo_vec_env = VecNormalize(process_grpo_vec_env, norm_obs=True, norm_reward=False)
+        process_grpo_eval_env = VecNormalize(process_grpo_eval_env, norm_obs=True, norm_reward=False)
+
+    process_grpo_eval_callback = EvalCallback(
+        process_grpo_eval_env,
+        log_path=EVAL_LOGS_PATH + "deepseek_process_grpo/",
+        eval_freq=EVAL_FREQ,
+        n_eval_episodes=N_EVAL_EPISODES,
+        deterministic=True,
+        render=False,
+        verbose=0,
+    )
+    process_grpo_model = GRPO(
+        "GroupPolicy",
+        process_grpo_vec_env,
+        group_rollout_buffer_class=ProcessGroupBuffer,
+        verbose=1,
+        group_size=16,
+        n_epochs=10,
+    )
+
+    print("Starting DeepSeek Process GRPO training...")
+    start_time = time.time()
+
+    # pr = cProfile.Profile()
+    # print("Starting DeepSeek Process GRPO profiling...")
+    # pr.enable()  # Start profiling
+
+    process_grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS, callback=process_grpo_eval_callback)
+    # process_grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
+    process_grpo_model.save(f"{MODELS_PATH}deepseek_process_grpo_model")
+
+    # pr.disable()
+    # print("DeeepSeek Process GRPO profiling completed. Saving profiling data...")
+    # pr.dump_stats(f"./eval/profiling_outputs/deepseek_process_grpo_profile_{timestamp}.prof")
+
+    end_time = time.time()
+    print(f"DeepSeek Process GRPO training completed in {(end_time - start_time):.2f} seconds.")
+
+    # NOTE only for visual inspection
+    obs = process_grpo_vec_env.reset()
+    for _ in range(N_RENDER_STEPS):
+        action, _states = process_grpo_model.predict(obs)
+        obs, rewards, dones, info = process_grpo_vec_env.step(action)
+        process_grpo_vec_env.render("human")
+
 if TRAIN_OUTCOME_GRPO:
     # Outcome supervision GRPO
-    outcome_grpo_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    outcome_grpo_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    outcome_grpo_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    outcome_grpo_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        outcome_grpo_vec_env = VecNormalize(outcome_grpo_vec_env, norm_obs=True, norm_reward=False)
+        outcome_grpo_eval_env = VecNormalize(outcome_grpo_eval_env, norm_obs=True, norm_reward=False)
 
     outcome_grpo_eval_callback = EvalCallback(
         outcome_grpo_eval_env,
@@ -467,8 +583,11 @@ if TRAIN_OUTCOME_GRPO:
 # --- PPO ---
 if TRAIN_PPO:
     # Standard PPO
-    ppo_vec_env = make_vec_env(ENV_NAME, n_envs=1)
-    ppo_eval_env = make_vec_env(ENV_NAME, n_envs=1)
+    ppo_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    ppo_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
+    if NORMALIZE_ENV:
+        ppo_vec_env = VecNormalize(ppo_vec_env, norm_obs=True, norm_reward=False)
+        ppo_eval_env = VecNormalize(ppo_eval_env, norm_obs=True, norm_reward=False)
 
     ppo_eval_callback = EvalCallback(
         ppo_eval_env,
@@ -497,19 +616,19 @@ if TRAIN_PPO:
     # ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
     ppo_model.save(f"{MODELS_PATH}ppo_model")
 
-    # NOTE only for visual inspection
-    obs = ppo_vec_env.reset()
-    for _ in range(1000):
-        action, _states = ppo_model.predict(obs)
-        obs, rewards, dones, info = ppo_vec_env.step(action)
-        ppo_vec_env.render("human")
-
     # pr.disable()
     # print("PPO profiling completed. Saving profiling data...")
     # pr.dump_stats(f"./eval/profiling_outputs/ppo_profile_{timestamp}.prof")
 
     end_time = time.time()
     print(f"PPO training completed in {(end_time - start_time):.2f} seconds.")
+
+    # NOTE only for visual inspection
+    obs = ppo_vec_env.reset()
+    for _ in range(N_RENDER_STEPS):
+        action, _states = ppo_model.predict(obs)
+        obs, rewards, dones, info = ppo_vec_env.step(action)
+        ppo_vec_env.render("human")
 
 # --- Plotting Evaluation Results ---
 if PLOT_EVAL_RESULTS:
@@ -645,6 +764,19 @@ if PLOT_EVAL_RESULTS:
         plt.plot(timesteps, mean_rewards, label="Process GRPO Reward")
         plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
 
+    if PLOT_DEEPSEEK_PROCESS_GRPO:
+        data = np.load(EVAL_LOGS_PATH + "deepseek_process_grpo/evaluations.npz")
+        timesteps = data["timesteps"]
+        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        results = data["results"]
+        results = results[:len(timesteps)]
+
+        mean_rewards = results.mean(axis=1)
+        std_rewards = results.std(axis=1)
+
+        plt.plot(timesteps, mean_rewards, label="DeepSeek Process GRPO Reward")
+        plt.fill_between(timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=EVAL_PLOT_OPAQUENESS_ALPHA)
+
     if PLOT_OUTCOME_GRPO:
         data = np.load(EVAL_LOGS_PATH + "outcome_grpo/evaluations.npz")
         timesteps = data["timesteps"]
@@ -680,5 +812,5 @@ if PLOT_EVAL_RESULTS:
     plt.tight_layout()
     if SAVE_EVAL_PLOT:
         os.makedirs(EVAL_PLOTS_PATH, exist_ok=True)
-        plt.savefig(f"{EVAL_PLOTS_PATH}eval_performance_{timestamp}.png")
+        plt.savefig(f"{EVAL_PLOTS_PATH}eval_performance_{ENV_NAME}_{timestamp}.png")
     plt.show()
