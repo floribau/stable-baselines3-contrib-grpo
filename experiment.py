@@ -60,6 +60,7 @@ if RLAlgorithm.RLOO in args.alg:
     alg_dir_path = exp_utils.get_experiment_data_path(EXPERIMENT_ID, algorithm_name)
     os.makedirs(alg_dir_path, exist_ok=True)
 
+    # These specified model kwargs will only be used if no algorithm-specific config has been stored yet for the experiment
     model_kwargs = {
         "policy": "GroupPolicy",
         "group_size": 16,
@@ -110,6 +111,7 @@ if RLAlgorithm.PROCESS_GRPO in args.alg:
     alg_dir_path = exp_utils.get_experiment_data_path(EXPERIMENT_ID, algorithm_name)
     os.makedirs(alg_dir_path, exist_ok=True)
 
+    # These specified model kwargs will only be used if no algorithm-specific config has been stored yet for the experiment
     model_kwargs = {
         "policy": "GroupPolicy",
         "group_size": 16,
@@ -158,6 +160,7 @@ if RLAlgorithm.DEEPSEEK_PROCESS_GRPO in args.alg:
     alg_dir_path = exp_utils.get_experiment_data_path(args.exp_id, algorithm_name)
     os.makedirs(alg_dir_path, exist_ok=True)
 
+    # These specified model kwargs will only be used if no algorithm-specific config has been stored yet for the experiment
     model_kwargs = {
         "policy": "GroupPolicy",
         "group_size": 16,
@@ -206,11 +209,13 @@ if RLAlgorithm.OUTCOME_GRPO in args.alg:
     alg_dir_path = exp_utils.get_experiment_data_path(args.exp_id, algorithm_name)
     os.makedirs(alg_dir_path, exist_ok=True)
 
+    # These specified model kwargs will only be used if no algorithm-specific config has been stored yet for the experiment
     model_kwargs = {
         "policy": "GroupPolicy",
         "group_size": 16,
         "n_epochs": 10,
     }
+    model_kwargs = exp_utils.get_algorithm_config(args.exp_id, algorithm_name, model_kwargs)
 
     for run in range(n_existing_runs, args.n_runs + n_existing_runs):
         vec_env = make_vec_env(ENV_NAME, n_envs=1)
@@ -255,6 +260,7 @@ if RLAlgorithm.PPO in args.alg:
     alg_dir_path = exp_utils.get_experiment_data_path(args.exp_id, algorithm_name)
     os.makedirs(alg_dir_path, exist_ok=True)
 
+    # These specified model kwargs will only be used if no algorithm-specific config has been stored yet for the experiment
     model_kwargs = {
         "policy": "MlpPolicy",
         "n_epochs": 10,
