@@ -140,7 +140,7 @@ class GRPO(BaseAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
-        assert self.supervision_type == self.group_rollout_buffer_class.supervision_type
+        assert self.supervision_type == self.group_rollout_buffer.supervision_type
 
     def _setup_model(self):
         self._setup_lr_schedule()
