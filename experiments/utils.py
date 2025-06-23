@@ -8,7 +8,7 @@ from argparse import Namespace
 
 from strenum import StrEnum
 
-BASE_EXPERIMENT_DATA_PATH = "./eval/experiment_data/"
+BASE_EXPERIMENT_DATA_PATH = "./experiments/experiment_data/"
 
 
 class RLAlgorithm(StrEnum):
@@ -54,7 +54,7 @@ def save_experiment_config(args: Namespace):
     """
     experiment_path = get_experiment_data_path(args.exp_id)
     os.makedirs(experiment_path, exist_ok=True)
-    exp_config_path = os.path.join(experiment_path, "exp_config.json")
+    exp_config_path = os.path.join(experiment_path, f"exp_{args.exp_id}_config.json")
     new_config = vars(args).copy()
 
     if os.path.exists(exp_config_path):
@@ -62,7 +62,7 @@ def save_experiment_config(args: Namespace):
             existing_config = json.load(f)
 
             # Check that specifications are the same (except for alg and n-runs, these will be handled by experiment_eval.py)
-            ignore_keys = {"alg", "n_runs"}
+            ignore_keys = {"alg", "n_runs", "verbose"}
             mismatches = {
                 key: (existing_config[key], new_config[key])
                 for key in new_config
@@ -82,4 +82,19 @@ def save_experiment_config(args: Namespace):
         json.dump(new_config, f, indent=4)
 
 
-# TODO write alg config files
+def get_algorithm_config(experiment_id: int, algorithm: str, config: dict) -> dict:
+    """
+    Gets the algorithm-specific configuration as a dict.
+    If the algorithm config file doesn't exist yet, the provided config will be stored to a JSON file first.
+    """
+    alg_path = get_experiment_data_path(experiment_id, algorithm)
+    alg_config_name = f"exp_{experiment_id}_{algorithm}_config.json"
+    os.makedirs(alg_path, exist_ok=True)
+    alg_config_path = os.path.join(alg_path, alg_config_name)
+
+    if not os.path.exists(alg_config_path):
+        with open(alg_config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=4)
+
+    with open(alg_config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
