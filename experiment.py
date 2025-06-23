@@ -37,7 +37,9 @@ parser.add_argument("--n-runs", type=int, default=1, help="Number of runs for th
 parser.add_argument("--n-training-steps", type=int, default=100_000, help="Number of training steps per run")
 parser.add_argument("--eval-freq", type=int, default=1_000, help="Frequency of evaluation during training in steps")
 parser.add_argument("--n-eval-episodes", type=int, default=4, help="Number of episodes for evaluation")
-parser.add_argument("--verbose", type=int, default=0, choices=[0, 1, 2], help="Verbosity level (0: no output, 1: info, 2: debug)")
+parser.add_argument(
+    "--verbose", type=int, default=0, choices=[0, 1, 2], help="Verbosity level (0: no output, 1: info, 2: debug)"
+)
 
 args = parser.parse_args()
 
