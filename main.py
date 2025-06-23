@@ -1,26 +1,36 @@
 """Main module to run GRPO on CartPole-v1 environment."""
-import time
-import os
-from datetime import datetime
-import warnings
+
 import cProfile
+import os
+import time
+import warnings
+from datetime import datetime
 
 import gymnasium as gym
-import numpy as np
 import matplotlib.pyplot as plt
-from stable_baselines3.common.env_util import make_vec_env
+import numpy as np
 from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.ppo import PPO
+
+from sb3_contrib.common.buffers import (
+    DeepSeekOutcomeGroupBuffer,
+    DeepSeekProcessGroupBuffer,
+    GroupBuffer,
+    ProcessGroupBuffer,
+    SupervisionType,
+)
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.rloo.rloo import RLOO
-from sb3_contrib.common.buffers import GroupBuffer, DeepSeekOutcomeGroupBuffer, DeepSeekProcessGroupBuffer, ProcessGroupBuffer, SupervisionType
 
 warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
+
 def make_custom_env():
     """Returns method creating gym envs with custom options."""
-    return gym.make(ENV_NAME,render_mode="rgb_array", is_slippery=False)
+    return gym.make(ENV_NAME, render_mode="rgb_array", is_slippery=False)
+
 
 PROCESS_SUPERVISION_BUFFER_CLASS: type[GroupBuffer] = ProcessGroupBuffer
 OUTCOME_SUPERVISION_BUFFER_CLASS: type[GroupBuffer] = DeepSeekOutcomeGroupBuffer
@@ -306,12 +316,8 @@ if TRAIN_PROCESS_GRPO_NO_CLIPPING:
     process_grpo_no_clipping_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
     process_grpo_no_clipping_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
     if NORMALIZE_ENV:
-        process_grpo_no_clipping_vec_env = VecNormalize(
-            process_grpo_no_clipping_vec_env, norm_obs=True, norm_reward=False
-        )
-        process_grpo_no_clipping_eval_env = VecNormalize(
-            process_grpo_no_clipping_eval_env, norm_obs=True, norm_reward=False
-        )
+        process_grpo_no_clipping_vec_env = VecNormalize(process_grpo_no_clipping_vec_env, norm_obs=True, norm_reward=False)
+        process_grpo_no_clipping_eval_env = VecNormalize(process_grpo_no_clipping_eval_env, norm_obs=True, norm_reward=False)
 
     process_grpo_no_clipping_eval_callback = EvalCallback(
         process_grpo_no_clipping_eval_env,
@@ -346,12 +352,8 @@ if TRAIN_OUTCOME_GRPO_NO_CLIPPING:
     outcome_grpo_no_clipping_vec_env = make_vec_env(ENV_CALLABLE, n_envs=1)
     outcome_grpo_no_clipping_eval_env = make_vec_env(ENV_CALLABLE, n_envs=1)
     if NORMALIZE_ENV:
-        outcome_grpo_no_clipping_vec_env = VecNormalize(
-            outcome_grpo_no_clipping_vec_env, norm_obs=True, norm_reward=False
-        )
-        outcome_grpo_no_clipping_eval_env = VecNormalize(
-            outcome_grpo_no_clipping_eval_env, norm_obs=True, norm_reward=False
-        )
+        outcome_grpo_no_clipping_vec_env = VecNormalize(outcome_grpo_no_clipping_vec_env, norm_obs=True, norm_reward=False)
+        outcome_grpo_no_clipping_eval_env = VecNormalize(outcome_grpo_no_clipping_eval_env, norm_obs=True, norm_reward=False)
 
     outcome_grpo_no_clipping_eval_callback = EvalCallback(
         outcome_grpo_no_clipping_eval_env,
@@ -651,9 +653,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_OUTCOME_RLOO:
         data = np.load(EVAL_LOGS_PATH + "outcome_rloo/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -664,9 +666,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_OUTCOME_RLOO_NO_GRAD_CLIPPING:
         data = np.load(EVAL_LOGS_PATH + "outcome_rloo_no_grad_clipping/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -677,9 +679,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_OUTCOME_RLOO_WITH_KL:
         data = np.load(EVAL_LOGS_PATH + "outcome_rloo_kl/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -691,9 +693,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_PROCESS_GRPO_NO_CLIPPING_NO_KL:
         data = np.load(EVAL_LOGS_PATH + "process_grpo_no_clipping_no_kl/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -704,9 +706,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_OUTCOME_GRPO_NO_CLIPPING_NO_KL:
         data = np.load(EVAL_LOGS_PATH + "outcome_grpo_no_clipping_no_kl/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -717,9 +719,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_PROCESS_GRPO_NO_CLIPPING:
         data = np.load(EVAL_LOGS_PATH + "process_grpo_no_clipping/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -730,9 +732,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_OUTCOME_GRPO_NO_CLIPPING:
         data = np.load(EVAL_LOGS_PATH + "outcome_grpo_no_clipping/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -743,9 +745,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_PROCESS_GRPO_NO_KL:
         data = np.load(EVAL_LOGS_PATH + "process_grpo_no_kl/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -756,9 +758,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_OUTCOME_GRPO_NO_KL:
         data = np.load(EVAL_LOGS_PATH + "outcome_grpo_no_kl/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -769,9 +771,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_PROCESS_GRPO:
         data = np.load(EVAL_LOGS_PATH + "process_grpo/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -782,9 +784,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_DEEPSEEK_PROCESS_GRPO:
         data = np.load(EVAL_LOGS_PATH + "deepseek_process_grpo/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -795,9 +797,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_OUTCOME_GRPO:
         data = np.load(EVAL_LOGS_PATH + "outcome_grpo/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
@@ -809,9 +811,9 @@ if PLOT_EVAL_RESULTS:
     if PLOT_PPO:
         data = np.load(EVAL_LOGS_PATH + "ppo/evaluations.npz")
         timesteps = data["timesteps"]
-        timesteps = timesteps[:np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side='right')]
+        timesteps = timesteps[: np.searchsorted(timesteps, EVAL_PLOT_DISPLAY_STEPS, side="right")]
         results = data["results"]
-        results = results[:len(timesteps)]
+        results = results[: len(timesteps)]
 
         mean_rewards = results.mean(axis=1)
         std_rewards = results.std(axis=1)
