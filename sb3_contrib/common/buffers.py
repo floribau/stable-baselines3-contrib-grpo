@@ -20,7 +20,7 @@ class SupervisionType(Enum):
     def is_outcome_supervision(self) -> bool:
         """Returns True if the supervision type is outcome supervision."""
         return self == SupervisionType.OUTCOME
-    
+
     def is_process_supervision(self) -> bool:
         """Returns True if the supervision type is process supervision."""
         return self == SupervisionType.PROCESS
@@ -103,9 +103,7 @@ class Trajectory:
 
 class GroupBuffer(BaseBuffer):
     """
-    Buffer class containing a group of trajectories for a single GRPO update.
-    The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep relative
-    to the mean return-to-go of all timesteps in the group.
+    Base GRPO buffer class containing a group of trajectories for a single GRPO update.
     """
 
     trajectories: list[Trajectory]
@@ -124,7 +122,11 @@ class GroupBuffer(BaseBuffer):
         super().__init__(buffer_size, observation_space, action_space, device, n_envs)
         self.reset()
         self.scale_rewards = scale_rewards
-        self.supervision_type = SupervisionType.PROCESS
+
+    def reset(self):
+        super().reset()
+        self.trajectories = []
+        self.returns = None
 
     def add(self, traj: Trajectory) -> int:  # pylint: disable=arguments-differ
         """
@@ -140,36 +142,22 @@ class GroupBuffer(BaseBuffer):
             return pos
         return -1
 
-    def reset(self):
-        super().reset()
-        self.trajectories = []
-        self.returns = None
-
     def _maybe_compute_returns(self):
         """
         Fills self.returns if not set yet.
-        Return at index t in a tensor i corresponds to the return for timestep t in trajectory i.
+        Return at index t in a tensor i corresponds to the return for timestep t in trajectory i
+        (if implementing process supervision).
         """
-        if self.returns is None:
-            self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
+        raise NotImplementedError
 
     def get_advantages(self) -> list[th.Tensor]:
         """
         Returns a list of advantage tensors relative to the group. This is the returns of all trajectories are
         subtracted as a baseline and possibly the returns are scaled by the standard deviation.
-        Advantage at index t in a tensor i corresponds to the advantage for timestep t in trajectory i.
+        Advantage at index t in a tensor i corresponds to the advantage for timestep t in trajectory i
+        (if implementing process supervision).
         """
-        assert len(self.trajectories) > 0, "Cannot compute advantages: No trajectories in the buffer."
-        self._maybe_compute_returns()
-
-        all_returns_to_go = th.cat(self.returns)
-        mean_return = all_returns_to_go.mean()
-        std_return = all_returns_to_go.mean()
-
-        advantages = [r - mean_return for r in self.returns]
-        if self.scale_rewards:
-            advantages = [a / (std_return + 1e-8) for a in advantages]  # avoid division by zero
-        return advantages
+        raise NotImplementedError
 
     def _get_samples(self, batch_inds: np.ndarray, env: VecNormalize | None = None):
         """
@@ -189,6 +177,18 @@ class TimestepGroupBuffer(GroupBuffer):
 
     BUG this version doesn't work because the update signal is too small.
     """
+    def __init__(
+        self,
+        buffer_size: int,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        scale_rewards: bool = False,
+        device: th.device | str = "auto",
+        n_envs: int = 1,
+    ):
+        super().__init__(buffer_size, observation_space, action_space, scale_rewards, device, n_envs)
+        self.supervision_type = SupervisionType.PROCESS
+
 
     def _maybe_compute_returns(self):
         if self.returns is None:
@@ -219,11 +219,60 @@ class TimestepGroupBuffer(GroupBuffer):
 class ProcessGroupBuffer(GroupBuffer):
     """
     Buffer class containing a group of trajectories for a single GRPO update.
+    The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep relative
+    to the mean return-to-go of all timesteps in the group.
+
+    The idea for this implementation has been taken from Emanuel Ruzak (https://github.com/emparu/PPO-vs-GRPO)
+    """
+    def __init__(
+        self,
+        buffer_size: int,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        scale_rewards: bool = False,
+        device: th.device | str = "auto",
+        n_envs: int = 1,
+    ):
+        super().__init__(buffer_size, observation_space, action_space, scale_rewards, device, n_envs)
+        self.supervision_type = SupervisionType.PROCESS
+
+    def _maybe_compute_returns(self):
+        if self.returns is None:
+            self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
+
+    def get_advantages(self) -> list[th.Tensor]:
+        assert len(self.trajectories) > 0, "Cannot compute advantages: No trajectories in the buffer."
+        self._maybe_compute_returns()
+
+        all_returns_to_go = th.cat(self.returns)
+        mean_return = all_returns_to_go.mean()
+        std_return = all_returns_to_go.mean()
+
+        advantages = [r - mean_return for r in self.returns]
+        if self.scale_rewards:
+            advantages = [a / (std_return + 1e-8) for a in advantages]  # avoid division by zero
+        return advantages
+
+
+class DeepSeekProcessGroupBuffer(GroupBuffer):
+    """
+    Buffer class containing a group of trajectories for a single GRPO update.
     The buffer implements process supervision, where the advantage is computed as the returns-to-go with the per-step rewards
     normalized by the average per-step reward of all steps in the trajectory.
 
     This implementation conforms to Process Supervision in DeepSeekMath (https://arxiv.org/pdf/2402.03300).
     """
+    def __init__(
+        self,
+        buffer_size: int,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        scale_rewards: bool = False,
+        device: th.device | str = "auto",
+        n_envs: int = 1,
+    ):
+        super().__init__(buffer_size, observation_space, action_space, scale_rewards, device, n_envs)
+        self.supervision_type = SupervisionType.PROCESS
 
     # TODO make all compute_returns and get_advantages use the same datatypes
     def _maybe_compute_returns(self):
@@ -247,7 +296,7 @@ class ProcessGroupBuffer(GroupBuffer):
         return advantages
 
 
-class OutcomeGroupBuffer(GroupBuffer):
+class DeepSeekOutcomeGroupBuffer(GroupBuffer):
     """
     Buffer class containing a group of trajectories for a single GRPO update.
     The buffer implements outcome supervision, where the advantage is computed as the trajectory reward relative
