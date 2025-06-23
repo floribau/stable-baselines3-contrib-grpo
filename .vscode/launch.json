@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run experiment",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiment.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp-id", "1",
+                "--alg", "ppo",
+                "--env", "CartPole-v1",
+                "--n-runs", "1",
+                "--n-training-steps", "100_000",
+                "--eval-freq", "1_000",
+                "--n-eval-episodes", "4"
+            ]
+        }
+    ]
+}

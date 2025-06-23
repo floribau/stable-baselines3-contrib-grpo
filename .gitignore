@@ -33,6 +33,7 @@ keys/
 
 logs/
 eval/
+experiments/experiment_data/
 
 .ipynb_checkpoints
 ghostdriver.log
