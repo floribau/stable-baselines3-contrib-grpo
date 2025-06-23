@@ -1,5 +1,6 @@
 SHELL=/bin/bash
-LINT_PATHS=sb3_contrib/ tests/ setup.py docs/conf.py
+MAIN_FILES=main.py experiment.py
+LINT_PATHS=sb3_contrib/ tests/ setup.py docs/conf.py experiments/ ${MAIN_FILES}
 
 pytest:
 	./scripts/run_tests.sh
