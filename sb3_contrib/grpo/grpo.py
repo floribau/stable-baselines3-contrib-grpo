@@ -15,10 +15,12 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import ConstantSchedule, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 
-from sb3_contrib.grpo.buffers import GroupBuffer, Trajectory
+from sb3_contrib.common.buffers import GroupBuffer, Trajectory
 from sb3_contrib.grpo.policies import ActorPolicy
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
+
+SelfProcessSupvisionGRPO = TypeVar("SelfProcessSupervisionGRPO", bound="ProcessSupervisionGRPO")
 
 
 class GRPO(BaseAlgorithm):
@@ -82,7 +84,7 @@ class GRPO(BaseAlgorithm):
         policy: str | type[ActorPolicy],
         env: GymEnv | str,
         learning_rate: float | Schedule = 3e-4,
-        group_size: int = 64,
+        group_size: int = 64,  # IDEA use n_envs for group_size, making it more efficient due to parallelization
         n_epochs: int = 10,
         gamma: float = 1,
         clip_range: float | Schedule = 0.2,
@@ -92,8 +94,8 @@ class GRPO(BaseAlgorithm):
         kl_ref_iterations: int = 1,
         ent_coef: float = 0.005,
         max_grad_norm: float | None = 0.5,
-        use_sde: bool = False,  # seems not to be relevant if spaces.Box is not supported as action space
-        sde_sample_freq: int = -1,  # seems not to be relevant if spaces.Box is not supported as action space
+        use_sde: bool = False,  # seems not to be relevant unless spaces.Box is supported as action space
+        sde_sample_freq: int = -1,  # seems not to be relevant unless spaces.Box is supported as action space
         group_rollout_buffer_class: type[GroupBuffer] | None = None,
         group_rollout_buffer_kwargs: dict[str, Any] | None = None,
         stats_window_size: int = 100,
@@ -119,7 +121,7 @@ class GRPO(BaseAlgorithm):
             seed=seed,
             stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
-            supported_action_spaces=(spaces.Discrete),
+            supported_action_spaces=(spaces.Discrete),  # TODO implement Box action spaces (and possibly MultiDiscrete)
         )
         self.group_size = group_size
         self.gamma = gamma
@@ -243,10 +245,7 @@ class GRPO(BaseAlgorithm):
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)
 
-        if self.group_rollout_buffer.supervision_type.is_outcome_supervision():
-            pg_losses, kl_losses, entropy_losses, clip_fractions, losses = self._train_outcome_supervision(clip_range)
-        else:
-            pg_losses, kl_losses, entropy_losses, clip_fractions, losses = self._train_process_supervision(clip_range)
+        pg_losses, kl_losses, entropy_losses, clip_fractions, losses = self._train(clip_range)
 
         # Logs
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
@@ -260,129 +259,12 @@ class GRPO(BaseAlgorithm):
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/clip_range", clip_range)
 
-    def _train_process_supervision(self, clip_range: float) -> tuple[list, list, list, list, list]:
-        # IDEA factor out policy updating, this is equal for all supervision types
-        pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
+    def _train(self, clip_range: float) -> tuple[list, list, list, list, list]:
+        """
+        Outcome supervision training method.
+        """
+        assert self.group_rollout_buffer.supervision_type.is_outcome_supervision(), "Buffer must be outcome supervision type."
 
-        advantages = self.group_rollout_buffer.get_advantages()
-
-        for _ in range(self.n_epochs):
-
-            obs_list, actions_list, old_log_probs_list, advantages_list = [], [], [], []
-
-            for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
-                obs, actions, old_log_probs = traj.to_tensor()
-
-                old_log_probs = old_log_probs.detach()
-
-                if len(obs) == 0:
-                    continue
-
-                if isinstance(self.action_space, spaces.Discrete):
-                    # Convert discrete action from float to long
-                    actions = actions.long().flatten()
-
-                advantage_tensor = advantages[traj_idx].detach()
-
-                if self.batch_group_updates:
-                    # Only collect values for batched policy update for the whole group
-                    obs_list.append(obs)
-                    actions_list.append(actions)
-                    old_log_probs_list.append(old_log_probs)
-                    advantages_list.append(advantage_tensor)
-
-                else:
-                    # Policy update for each trajectory separately
-                    current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
-
-                    # --- Policy Gradient loss ---
-                    ratios = th.exp(current_log_probs - old_log_probs)
-                    surr1 = ratios * advantage_tensor
-                    surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantage_tensor
-                    policy_loss = -th.min(surr1, surr2).mean()
-
-                    # --- KL loss ---
-                    with th.no_grad():
-                        log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
-                    kl_ratios = log_probs_ref - current_log_probs
-                    kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
-                    kl_loss = kl_div_estimate.mean()
-
-                    # --- Entropy loss ---
-                    if entropy is None:
-                        # Approximate entropy when no analytical form
-                        entropy_loss = -th.mean(-current_log_probs)
-                    else:
-                        entropy_loss = -th.mean(entropy)
-
-                    # --- Total loss ---
-                    loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
-
-                    # --- Logging ---
-                    pg_losses.append(policy_loss.item())
-                    kl_losses.append(kl_loss.item())
-                    entropy_losses.append(entropy_loss.item())
-                    losses.append(loss.item())
-                    clip_fraction = th.mean((th.abs(ratios - 1.0) > clip_range).float()).item()
-                    clip_fractions.append(clip_fraction)
-
-                    # --- Backprop ---
-                    self.policy.optimizer.zero_grad()
-                    loss.backward()
-                    if self.max_grad_norm is not None:
-                        # Clip grad norm
-                        th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-                    self.policy.optimizer.step()
-
-            if self.batch_group_updates:
-                # Finally the batched policy update for the whole group
-                obs = th.cat(obs_list, dim=0)
-                actions = th.cat(actions_list, dim=0)
-                old_log_probs = th.cat(old_log_probs_list, dim=0)
-                advantages_tensor = th.cat(advantages_list, dim=0)
-
-                current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
-
-                # --- Policy Gradient loss ---
-                ratios = th.exp(current_log_probs - old_log_probs)
-                surr1 = ratios * advantages_tensor
-                surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantages_tensor
-                policy_loss = -th.min(surr1, surr2).mean()
-
-                # --- KL loss ---
-                with th.no_grad():
-                    log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
-                kl_ratios = log_probs_ref - current_log_probs
-                kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
-                kl_loss = kl_div_estimate.mean()
-
-                # --- Entropy loss ---
-                entropy_loss = -th.mean(entropy) if entropy is not None else -th.mean(-current_log_probs)
-
-                # --- Total loss ---
-                loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
-
-                # --- Logging ---
-                pg_losses.append(policy_loss.item())
-                kl_losses.append(kl_loss.item())
-                entropy_losses.append(entropy_loss.item())
-                losses.append(loss.item())
-                clip_fraction = th.mean((th.abs(ratios - 1.0) > clip_range).float()).item()
-                clip_fractions.append(clip_fraction)
-
-                # --- Backprop ---
-                self.policy.optimizer.zero_grad()
-                loss.backward()
-                if self.max_grad_norm is not None:
-                    # Clip grad norm
-                    th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-                self.policy.optimizer.step()
-
-            self._n_updates += 1  # this is in accordance with PPO from SB3
-
-        return pg_losses, kl_losses, entropy_losses, clip_fractions, losses
-
-    def _train_outcome_supervision(self, clip_range: float) -> tuple[list, list, list, list, list]:
         pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
         advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories, )
@@ -537,7 +419,7 @@ class GRPO(BaseAlgorithm):
         tb_log_name: str = "GRPO",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> "GRPO":
+    ) -> SelfGRPO:
         total_timesteps, callback = self._setup_learn(
             total_timesteps=total_timesteps,
             callback=callback,
@@ -573,3 +455,148 @@ class GRPO(BaseAlgorithm):
             iteration += 1
 
         return self
+
+class ProcessSupervisionGRPO(GRPO):
+    def _train(self, clip_range: float) -> tuple[list, list, list, list, list]:
+        """
+        Process supvervision training method.
+        """
+        assert self.group_rollout_buffer.supervision_type.is_process_supervision(), "Buffer must be process supervision type."
+        # IDEA factor out policy updating, this is equal for all supervision types
+        pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
+
+        advantages = self.group_rollout_buffer.get_advantages()
+
+        for _ in range(self.n_epochs):
+
+            obs_list, actions_list, old_log_probs_list, advantages_list = [], [], [], []
+
+            for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
+                obs, actions, old_log_probs = traj.to_tensor()
+
+                old_log_probs = old_log_probs.detach()
+
+                if len(obs) == 0:
+                    continue
+
+                if isinstance(self.action_space, spaces.Discrete):
+                    # Convert discrete action from float to long
+                    actions = actions.long().flatten()
+
+                advantage_tensor = advantages[traj_idx].detach()
+
+                if self.batch_group_updates:
+                    # Only collect values for batched policy update for the whole group
+                    obs_list.append(obs)
+                    actions_list.append(actions)
+                    old_log_probs_list.append(old_log_probs)
+                    advantages_list.append(advantage_tensor)
+
+                else:
+                    # Policy update for each trajectory separately
+                    current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
+
+                    # --- Policy Gradient loss ---
+                    ratios = th.exp(current_log_probs - old_log_probs)
+                    surr1 = ratios * advantage_tensor
+                    surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantage_tensor
+                    policy_loss = -th.min(surr1, surr2).mean()
+
+                    # --- KL loss ---
+                    with th.no_grad():
+                        log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
+                    kl_ratios = log_probs_ref - current_log_probs
+                    kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
+                    kl_loss = kl_div_estimate.mean()
+
+                    # --- Entropy loss ---
+                    if entropy is None:
+                        # Approximate entropy when no analytical form
+                        entropy_loss = -th.mean(-current_log_probs)
+                    else:
+                        entropy_loss = -th.mean(entropy)
+
+                    # --- Total loss ---
+                    loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
+
+                    # --- Logging ---
+                    pg_losses.append(policy_loss.item())
+                    kl_losses.append(kl_loss.item())
+                    entropy_losses.append(entropy_loss.item())
+                    losses.append(loss.item())
+                    clip_fraction = th.mean((th.abs(ratios - 1.0) > clip_range).float()).item()
+                    clip_fractions.append(clip_fraction)
+
+                    # --- Backprop ---
+                    self.policy.optimizer.zero_grad()
+                    loss.backward()
+                    if self.max_grad_norm is not None:
+                        # Clip grad norm
+                        th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                    self.policy.optimizer.step()
+
+            if self.batch_group_updates:
+                # Finally the batched policy update for the whole group
+                obs = th.cat(obs_list, dim=0)
+                actions = th.cat(actions_list, dim=0)
+                old_log_probs = th.cat(old_log_probs_list, dim=0)
+                advantages_tensor = th.cat(advantages_list, dim=0)
+
+                current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
+
+                # --- Policy Gradient loss ---
+                ratios = th.exp(current_log_probs - old_log_probs)
+                surr1 = ratios * advantages_tensor
+                surr2 = th.clamp(ratios, 1.0 - clip_range, 1.0 + clip_range) * advantages_tensor
+                policy_loss = -th.min(surr1, surr2).mean()
+
+                # --- KL loss ---
+                with th.no_grad():
+                    log_probs_ref, _ = self.policy_ref.evaluate_actions(obs, actions)
+                kl_ratios = log_probs_ref - current_log_probs
+                kl_div_estimate = th.exp(kl_ratios) - kl_ratios - 1
+                kl_loss = kl_div_estimate.mean()
+
+                # --- Entropy loss ---
+                entropy_loss = -th.mean(entropy) if entropy is not None else -th.mean(-current_log_probs)
+
+                # --- Total loss ---
+                loss = policy_loss + self.kl_beta * kl_loss + self.ent_coef * entropy_loss
+
+                # --- Logging ---
+                pg_losses.append(policy_loss.item())
+                kl_losses.append(kl_loss.item())
+                entropy_losses.append(entropy_loss.item())
+                losses.append(loss.item())
+                clip_fraction = th.mean((th.abs(ratios - 1.0) > clip_range).float()).item()
+                clip_fractions.append(clip_fraction)
+
+                # --- Backprop ---
+                self.policy.optimizer.zero_grad()
+                loss.backward()
+                if self.max_grad_norm is not None:
+                    # Clip grad norm
+                    th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                self.policy.optimizer.step()
+
+            self._n_updates += 1  # this is in accordance with PPO from SB3
+
+        return pg_losses, kl_losses, entropy_losses, clip_fractions, losses
+
+    def learn(
+        self,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 10,
+        tb_log_name: str = "ProcessSupervisionGRPO",
+        reset_num_timesteps: bool = True,
+        progress_bar: bool = False,
+    ) -> SelfProcessSupvisionGRPO:
+        return super().learn(
+            total_timesteps=total_timesteps,
+            callback=callback,
+            log_interval=log_interval,
+            tb_log_name=tb_log_name,
+            reset_num_timesteps=reset_num_timesteps,
+            progress_bar=progress_bar,
+        )

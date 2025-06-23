@@ -2,13 +2,17 @@
 Module containing the RLOO class
 """
 
+from typing import TypeVar
+
 import numpy as np
 import torch as th
 from gymnasium import spaces
+from stable_baselines3.common.type_aliases import MaybeCallback
 
-from sb3_contrib.grpo.buffers import OutcomeGroupBuffer
+from sb3_contrib.common.buffers import OutcomeGroupBuffer
 from sb3_contrib.grpo.grpo import GRPO
 
+SelfRLOO = TypeVar("SelfRLOO", bound="RLOO")
 
 class RLOO(GRPO):
     """
@@ -106,7 +110,7 @@ class RLOO(GRPO):
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
 
-        pg_losses, kl_losses, entropy_losses, losses = self._train_rloo()
+        pg_losses, kl_losses, entropy_losses, losses = self._train()
 
         # Logs
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
@@ -118,7 +122,10 @@ class RLOO(GRPO):
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
 
-    def _train_rloo(self) -> tuple[list, list, list, list]:
+    def _train(self) -> tuple[list, list, list, list]:
+        """
+        RLOO training method (outcome supervision by definition).
+        """
         # RLOO outcome supervision update method
         self.policy.set_training_mode(False)
         advantages = self.group_rollout_buffer.get_leave_one_out_advantages()  # shape: (n_trajectories, )
@@ -175,3 +182,21 @@ class RLOO(GRPO):
 
         # pg_losses, entropy_losses, total_losses
         return [pg_loss.item()], [kl_loss.item()], [entropy_loss.item()], [loss.item()]
+
+    def learn(
+        self,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 10,
+        tb_log_name: str = "ProcessSupervisionGRPO",
+        reset_num_timesteps: bool = True,
+        progress_bar: bool = False,
+    ) -> SelfRLOO:
+        return super().learn(
+            total_timesteps=total_timesteps,
+            callback=callback,
+            log_interval=log_interval,
+            tb_log_name=tb_log_name,
+            reset_num_timesteps=reset_num_timesteps,
+            progress_bar=progress_bar,
+        )

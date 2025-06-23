@@ -20,6 +20,14 @@ class SupervisionType(Enum):
     def is_outcome_supervision(self) -> bool:
         """Returns True if the supervision type is outcome supervision."""
         return self == SupervisionType.OUTCOME
+    
+    def is_process_supervision(self) -> bool:
+        """Returns True if the supervision type is process supervision."""
+        return self == SupervisionType.PROCESS
+
+    def is_rloo_outcome_supervision(self) -> bool:
+        """Returns True if the supervision type is RLOO outcome supervision."""
+        return self == SupervisionType.RLOO_OUTCOME
 
 
 class Trajectory:
