@@ -18,6 +18,7 @@ from sb3_contrib.common.buffers import (
     ProcessGroupBuffer,
     SupervisionType,
 )
+from sb3_contrib.common.callbacks import UpdatesEvalCallback
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.rloo.rloo import RLOO
 
@@ -31,24 +32,25 @@ parser.add_argument(
     choices=list(map(str, RLAlgorithm)),
     help="Algorithm(s) to use. Can be passed multiple times, e.g., --alg rloo --alg ppo",
 )
-parser.add_argument("--env", type=str, required=True, help="Environment name")
+parser.add_argument("--env", type=str, required=True, help="Environment name")  # TODO add choices for environments
 parser.add_argument("--normalize-env", action="store_true", help="Whether to normalize the environment")
 parser.add_argument("--n-runs", type=int, default=1, help="Number of runs for the experiment")
-parser.add_argument("--n-training-steps", type=int, default=100_000, help="Number of training steps per run")
+parser.add_argument("--n-timesteps", type=int, default=100_000, help="Number of training steps per run")
 parser.add_argument("--eval-freq", type=int, default=1_000, help="Frequency of evaluation during training in steps")
 parser.add_argument("--n-eval-episodes", type=int, default=4, help="Number of episodes for evaluation")
 parser.add_argument(
     "--verbose", type=int, default=0, choices=[0, 1, 2], help="Verbosity level (0: no output, 1: info, 2: debug)"
 )
-
+parser.add_argument("--collect-updates", action="store_true", help="Whether to also collect updates or only timesteps")
 args = parser.parse_args()
 
 EXPERIMENT_ID = args.exp_id
 ENV_NAME = args.env
 NORMALIZE_ENV = args.normalize_env
-N_TRAINING_TIMESTEPS = args.n_training_steps
+N_TRAINING_TIMESTEPS = args.n_timesteps
 EVAL_FREQ = args.eval_freq
 N_EVAL_EPISODES = args.n_eval_episodes
+COLLECT_UPDATES = args.collect_updates
 
 EXPERIMENT_PATH = exp_utils.get_experiment_data_path(EXPERIMENT_ID)
 exp_utils.save_experiment_config(args)
@@ -78,15 +80,26 @@ if RLAlgorithm.RLOO in args.alg:
             vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=False)
             eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False)
 
-        eval_callback = EvalCallback(
-            eval_env,
-            log_path=alg_dir_path,
-            eval_freq=EVAL_FREQ,
-            n_eval_episodes=N_EVAL_EPISODES,
-            deterministic=True,
-            render=False,
-            verbose=0,
-        )
+        if COLLECT_UPDATES:
+            eval_callback = UpdatesEvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
+        else:
+            eval_callback = EvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
         model = RLOO(
             env=vec_env,
             group_rollout_buffer_class=DeepSeekOutcomeGroupBuffer,
@@ -128,15 +141,26 @@ if RLAlgorithm.PROCESS_GRPO in args.alg:
             vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=False)
             eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False)
 
-        eval_callback = EvalCallback(
-            eval_env,
-            log_path=alg_dir_path,
-            eval_freq=EVAL_FREQ,
-            n_eval_episodes=N_EVAL_EPISODES,
-            deterministic=True,
-            render=False,
-            verbose=0,
-        )
+        if COLLECT_UPDATES:
+            eval_callback = UpdatesEvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
+        else:
+            eval_callback = EvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
         model = GRPO(
             env=vec_env,
             group_rollout_buffer_class=ProcessGroupBuffer,
@@ -177,15 +201,26 @@ if RLAlgorithm.DEEPSEEK_PROCESS_GRPO in args.alg:
             vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=False)
             eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False)
 
-        eval_callback = EvalCallback(
-            eval_env,
-            log_path=alg_dir_path,
-            eval_freq=EVAL_FREQ,
-            n_eval_episodes=N_EVAL_EPISODES,
-            deterministic=True,
-            render=False,
-            verbose=0,
-        )
+        if COLLECT_UPDATES:
+            eval_callback = UpdatesEvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
+        else:
+            eval_callback = EvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
         model = GRPO(
             env=vec_env,
             group_rollout_buffer_class=DeepSeekProcessGroupBuffer,
@@ -226,15 +261,26 @@ if RLAlgorithm.OUTCOME_GRPO in args.alg:
             vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=False)
             eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False)
 
-        eval_callback = EvalCallback(
-            eval_env,
-            log_path=alg_dir_path,
-            eval_freq=EVAL_FREQ,
-            n_eval_episodes=N_EVAL_EPISODES,
-            deterministic=True,
-            render=False,
-            verbose=0,
-        )
+        if COLLECT_UPDATES:
+            eval_callback = UpdatesEvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
+        else:
+            eval_callback = EvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
         model = GRPO(
             env=vec_env,
             supervision_type=SupervisionType.OUTCOME,
@@ -276,15 +322,26 @@ if RLAlgorithm.PPO in args.alg:
             vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=False)
             eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False)
 
-        eval_callback = EvalCallback(
-            eval_env,
-            log_path=alg_dir_path,
-            eval_freq=EVAL_FREQ,
-            n_eval_episodes=N_EVAL_EPISODES,
-            deterministic=True,
-            render=False,
-            verbose=0,
-        )
+        if COLLECT_UPDATES:
+            eval_callback = UpdatesEvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
+        else:
+            eval_callback = EvalCallback(
+                eval_env,
+                log_path=alg_dir_path,
+                eval_freq=EVAL_FREQ,
+                n_eval_episodes=N_EVAL_EPISODES,
+                deterministic=True,
+                render=False,
+                verbose=0,
+            )
         model = PPO(
             env=vec_env,
             verbose=args.verbose,
