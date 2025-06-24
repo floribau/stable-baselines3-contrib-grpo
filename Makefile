@@ -1,5 +1,5 @@
 SHELL=/bin/bash
-MAIN_FILES=main.py experiment.py
+MAIN_FILES=main.py experiment.py experiment_eval.py
 LINT_PATHS=sb3_contrib/ tests/ setup.py docs/conf.py experiments/ ${MAIN_FILES}
 
 pytest:
