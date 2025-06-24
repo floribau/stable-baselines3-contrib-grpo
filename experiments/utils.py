@@ -17,9 +17,9 @@ class RLAlgorithm(StrEnum):
     """
 
     RLOO = "rloo"
-    OUTCOME_GRPO = "outcome_grpo"
-    PROCESS_GRPO = "process_grpo"  # Process GRPO according to Emanuel Ruzak (https://github.com/emparu/PPO-vs-GRPO)
-    DEEPSEEK_PROCESS_GRPO = "deepseek_process_grpo"  # Process GRPO according to DeepSeek (https://arxiv.org/pdf/2402.03300)
+    OUTCOME_GRPO = "outcome-grpo"
+    PROCESS_GRPO = "process-grpo"  # Process GRPO according to Emanuel Ruzak (https://github.com/emparu/PPO-vs-GRPO)
+    DEEPSEEK_PROCESS_GRPO = "deepseek-process-grpo"  # Process GRPO according to DeepSeek (https://arxiv.org/pdf/2402.03300)
     PPO = "ppo"
 
 
@@ -32,7 +32,7 @@ def get_experiment_data_path(experiment_id: int, algorithm: str | None = None, r
         return os.path.join(BASE_EXPERIMENT_DATA_PATH, f"experiment_{experiment_id}")
     if run_id is None:
         return os.path.join(BASE_EXPERIMENT_DATA_PATH, f"experiment_{experiment_id}", algorithm)
-    return os.path.join(BASE_EXPERIMENT_DATA_PATH, f"experiment_{experiment_id}", algorithm, f"run_{run_id}")
+    return os.path.join(BASE_EXPERIMENT_DATA_PATH, f"experiment_{experiment_id}", algorithm, f"run_{run_id}.npz")
 
 
 def get_existing_runs(experiment_id: int, algorithm: str) -> int:
