@@ -36,7 +36,7 @@ num_common_steps = max(int(num_timesteps / eval_freq), 1)  # TODO does this work
 
 # Plot curves for each algorithm averaged over runs
 plt.figure(figsize=(14, 5))
-plt.suptitle(f"Experiment {args.exp_id} Evaluation", fontsize=16)
+plt.suptitle(f"Experiment {args.exp_id} Evaluation over {n_runs} runs", fontsize=16)
 
 if args.plot_timesteps:
     # Plot rewards vs timesteps
@@ -46,36 +46,41 @@ if args.plot_timesteps:
         # Collect all data for the algorithm across runs
         all_alg_data = []
         for i in range(n_runs):
-            data = np.load(exp_utils.get_experiment_data_path(args.exp_id, alg, i))
+            data = dict(np.load(exp_utils.get_experiment_data_path(args.exp_id, alg, i)))
             all_alg_data.append(data)
 
-        min_ts = max(data["timesteps"][0] for data in all_alg_data)
-        max_ts = min(data["timesteps"][-1] for data in all_alg_data)
-        common_steps = np.linspace(min_ts, max_ts, num_common_steps)
+        all_timesteps = [data["timesteps"] for data in all_alg_data]
+        common_timesteps = set(all_timesteps[0])
+        for timesteps in all_timesteps[1:]:
+            common_timesteps.intersection_update(timesteps)
+        common_timesteps = sorted(common_timesteps)
 
+        # Filter data to only include common timesteps between all runs
+        dropped_timesteps = []
+        for i, data in enumerate(all_alg_data):
+            ts = data["timesteps"]
+            results = data["results"]
+
+            indices = [i for i, t in enumerate(ts) if t in common_timesteps]
+            dropped_timesteps.append(len(ts) - len(indices))
+
+            data["timesteps"] = ts[indices]
+            data["results"] = results[indices]
+
+        # Sanity check: all timesteps must be equal across runs
         for data in all_alg_data:
-            for key in data.keys():
-                arr = data[key]
-                print(f"{key}: shape={arr.shape}, dtype={arr.dtype}")
-                print(f"{key} sample values: {arr[:5]}")
+            a1 = data["timesteps"]
+            a2 = all_alg_data[0]["timesteps"]
+            assert np.array_equal(a1, a2), f"Timesteps must be equal: {a1} != {a2}"
 
-        all_interpolated_rewards = []
-        for data in all_alg_data:
-            timesteps = data["timesteps"]
-            rewards = data["results"]
-            mean_rewards = np.mean(rewards, axis=1)
+        all_rewards = np.array([data["results"] for data in all_alg_data])
+        all_rewards = np.mean(all_rewards, axis=2)
+        mean_rewards = np.mean(all_rewards, axis=0)
+        std_rewards = np.std(all_rewards, axis=0)
 
-            # Interpolate rewards to common steps
-            interp_rewards = np.interp(common_steps, timesteps, mean_rewards)
-            all_interpolated_rewards.append(interp_rewards)
-
-        all_interpolated_rewards = np.array(all_interpolated_rewards)
-        mean_interp_rewards = np.mean(all_interpolated_rewards, axis=0)
-        std_interp_rewards = np.std(all_interpolated_rewards, axis=0)
-
-        plt.plot(common_steps, mean_interp_rewards, label=f"{alg.name.upper()}")
+        plt.plot(common_timesteps, mean_rewards, label=f"{alg.name.upper()}")
         plt.fill_between(
-            common_steps, mean_interp_rewards - std_interp_rewards, mean_interp_rewards + std_interp_rewards, alpha=0.2
+            common_timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=0.2
         )
 
     plt.title("Rewards vs Timesteps")
@@ -93,30 +98,58 @@ if args.plot_updates:
         # Collect all data for the algorithm across runs
         all_alg_data = []
         for i in range(n_runs):
-            data = np.load(exp_utils.get_experiment_data_path(args.exp_id, alg, i))
+            data = dict(np.load(exp_utils.get_experiment_data_path(args.exp_id, alg, i)))
             all_alg_data.append(data)
 
-        min_upd = max((data["updates"][0] for data in all_alg_data), default=0)
-        max_upd = min((data["updates"][-1] for data in all_alg_data), default=0)
-        common_steps = np.linspace(min_upd, max_upd, num_common_steps)
-
-        all_interpolated_rewards = []
-        for data in all_alg_data:
+        # Only keep first update observations for each run
+        for i, data in enumerate(all_alg_data):
             updates = data["updates"]
-            rewards = data["results"]
-            mean_rewards = np.mean(rewards, axis=1)
+            results = data["results"]
 
-            # Interpolate rewards to common steps
-            interp_rewards = np.interp(common_steps, updates, mean_rewards)
-            all_interpolated_rewards.append(interp_rewards)
+            seen = set()
+            indices = []
+            for idx, upd in enumerate(updates):
+                # TODO check if I can do this with np.unique
+                if upd not in seen:
+                    indices.append(idx)
+                    seen.add(upd)
 
-        all_interpolated_rewards = np.array(all_interpolated_rewards)
-        mean_interp_rewards = np.mean(all_interpolated_rewards, axis=0)
-        std_interp_rewards = np.std(all_interpolated_rewards, axis=0)
+            data["updates"] = updates[indices]
+            data["results"] = results[indices]
 
-        plt.plot(common_steps, mean_interp_rewards, label=f"{alg.name.upper()}")
+        # Only keep common updates across all runs
+        all_updates = [data["updates"] for data in all_alg_data]
+        common_updates = set(all_updates[0])
+        for updates in all_updates[1:]:
+            common_updates.intersection_update(updates)
+        common_updates = sorted(common_updates)
+
+        # Filter data to only include common updates between all runs
+        dropped_updates = []
+        for i, data in enumerate(all_alg_data):
+            updates = data["updates"]
+            results = data["results"]
+
+            indices = [i for i, upd in enumerate(updates) if upd in common_updates]
+            dropped_updates.append(len(updates) - len(indices))
+
+            data["updates"] = updates[indices]
+            data["results"] = results[indices]
+
+        # Sanity check that all updates are equal across runs
+        for data in all_alg_data:
+            a1 = data["updates"]
+            a2 = all_alg_data[0]["updates"]
+            assert np.array_equal(a1, a2), f"Updates must be equal: {a1} != {a2}"
+
+        all_rewards = np.array([data["results"] for data in all_alg_data])
+        all_rewards = np.mean(all_rewards, axis=2)
+        mean_rewards = np.mean(all_rewards, axis=0)
+        std_rewards = np.std(all_rewards, axis=0)
+
+        plt.plot(common_updates, mean_rewards, label=f"{alg.name.upper()}")
         plt.fill_between(
-            common_steps, mean_interp_rewards - std_interp_rewards, mean_interp_rewards + std_interp_rewards, alpha=0.2
+            common_updates, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=0.2
         )
 
     plt.title("Rewards vs Updates")
