@@ -1,5 +1,10 @@
 ## Experiment Usage Guide
 
+### 0. Preparatory Changes
+
+Locally add your envs to RL-Zoo3's env_key_to_env_id dict in plot_from_file.py and the reference scores per env in RL-Zoo3's reference_scores in score_normalization.
+
+
 ### 1. Train Multiple Seeds
 
 Run the following command to train multiple seeds for each algorithm and/or environment.  
