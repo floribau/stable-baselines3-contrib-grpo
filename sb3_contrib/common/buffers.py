@@ -349,3 +349,12 @@ class DeepSeekOutcomeGroupBuffer(GroupBuffer):
         k = len(self.returns)
         advantages = self.returns - (total_return_sum - self.returns) / (k - 1)
         return advantages
+
+
+BUFFERS = {
+    "GroupBuffer": GroupBuffer,
+    "TimestepGroupBuffer": TimestepGroupBuffer,
+    "ProcessGroupBuffer": ProcessGroupBuffer,
+    "DeepSeekProcessGroupBuffer": DeepSeekProcessGroupBuffer,
+    "DeepSeekOutcomeGroupBuffer": DeepSeekOutcomeGroupBuffer,
+}
