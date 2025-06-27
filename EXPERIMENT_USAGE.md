@@ -21,6 +21,20 @@ python experiment_rliable.py \
     --seed <seed_id>
 ```
 
+Alternatively, you can run the following comman line once for each env
+```bash
+ENV=<env_name>
+NUM_TIMESTEPS=<num_timesteps>
+EVAL_FREQ=<eval_freq>
+LOG_PATH=logs/exp_<exp_id>
+
+for SEED in 0 1 2 3 4; do
+    for ALGO_NAME in <algo_names>; do
+        python experiment_rliable.py --algo $ALGO_NAME --env $ENV -conf sb3_contrib/hyperparams/$ALGO_NAME.yml -n $NUM_TIMESTEPS --eval-freq $EVAL_FREQ -f $LOG_PATH --seed $SEED
+    done
+done
+```
+
 ---
 
 ### 2. Generate Experiment PKL Data
