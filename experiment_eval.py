@@ -79,9 +79,7 @@ if args.plot_timesteps:
         std_rewards = np.std(all_rewards, axis=0)
 
         plt.plot(common_timesteps, mean_rewards, label=f"{alg.name.upper()}")
-        plt.fill_between(
-            common_timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=0.2
-        )
+        plt.fill_between(common_timesteps, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=0.2)
 
     plt.title("Rewards vs Timesteps")
     plt.xlabel("Timesteps")
@@ -148,9 +146,7 @@ if args.plot_updates:
         std_rewards = np.std(all_rewards, axis=0)
 
         plt.plot(common_updates, mean_rewards, label=f"{alg.name.upper()}")
-        plt.fill_between(
-            common_updates, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=0.2
-        )
+        plt.fill_between(common_updates, mean_rewards - std_rewards, mean_rewards + std_rewards, alpha=0.2)
 
     plt.title("Rewards vs Updates")
     plt.xlabel("Updates")
