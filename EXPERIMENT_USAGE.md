@@ -42,7 +42,7 @@ done
 Use this command to generate the experiment `.pkl` data:
 
 ```bash
-python -m rl_zoo3.plots.all_plots.py \
+python -m rl_zoo3.plots.all_plots \
     -a <algo_name(s)> \
     -e <env_name(s)> \
     -f logs \
