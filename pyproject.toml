@@ -100,6 +100,7 @@ box2d = "^2.3.10"
 rl-zoo3 = "^2.6.0"
 strenum = "^0.4.15"
 rliable = "^1.2.0"
+wandb = "^0.20.1"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
