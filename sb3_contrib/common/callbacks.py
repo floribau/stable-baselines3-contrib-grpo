@@ -148,4 +148,6 @@ class UpdatesEvalCallback(EvalCallback):
             if self.callback is not None:
                 continue_training = continue_training and self._on_event()
 
+        # TODO insert eval logic here after n_timesteps and n_updates -> ensure that x-axis is consistent across runs
+
         return continue_training
