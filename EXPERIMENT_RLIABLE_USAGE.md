@@ -2,7 +2,7 @@
 
 ### 0. Preparatory Changes
 
-Locally add your environments to RL-Zoo3's `env_key_to_env_id` dictionary in [`rl_zoo3/plots/plot_from_file.py`](.venv/lib/python3.10/site-packages/rl_zoo3/plots/plot_from_file.py), and the reference scores per environment in RL-Zoo3's `reference_scores` in [`rl_zoo3/plots/score_normalization.py`](.venv/lib/python3.10/site-packages/rl_zoo3/plots/score_normalization.py).
+Locally add your environments to RL-Zoo3's `env_key_to_env_id` dictionary in [`rl_zoo3/plots/plot_from_file.py`](.venv/lib/python3.10/site-packages/rl_zoo3/plots/plot_from_file.py), and the reference scores per environment for reward normalization in RL-Zoo3's `reference_scores` in [`rl_zoo3/plots/score_normalization.py`](.venv/lib/python3.10/site-packages/rl_zoo3/plots/score_normalization.py).
 
 
 ### 1. Train Multiple Seeds
