@@ -6,6 +6,7 @@ It is designed to be run as a standalone script.
 
 from rl_zoo3.train import train
 from rl_zoo3.utils import ALGOS
+from stable_baselines3.ppo import PPO
 
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.rloo.rloo import RLOO
@@ -15,6 +16,7 @@ ALGOS["process-grpo"] = GRPO
 ALGOS["deepseek-process-grpo"] = GRPO
 ALGOS["outcome-grpo"] = GRPO
 ALGOS["rloo"] = RLOO
+ALGOS["default-ppo"] = PPO
 # TODO add other custom algorithms as needed (e.g., CISPO)
 
 # Start training

@@ -357,4 +357,5 @@ BUFFERS = {
     "ProcessGroupBuffer": ProcessGroupBuffer,
     "DeepSeekProcessGroupBuffer": DeepSeekProcessGroupBuffer,
     "DeepSeekOutcomeGroupBuffer": DeepSeekOutcomeGroupBuffer,
+    "OutcomeGroupBuffer": DeepSeekOutcomeGroupBuffer,  # alias for DeepSeekOutcomeGroupBuffer
 }
