@@ -12,7 +12,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import ConstantSchedule, obs_as_tensor, safe_mean
+from stable_baselines3.common.utils import FloatSchedule, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 
 from sb3_contrib.common.buffers import GroupBuffer, ProcessGroupBuffer, SupervisionType, Trajectory, BUFFERS
@@ -51,7 +51,6 @@ class GRPO(BaseAlgorithm):
         instead of action noise exploration (default: False)
     :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
         Default: -1 (only sample at the beginning of the rollout)
-    :param supervision_type: Type of supervision to use for the group rollout buffer.
     :param group_rollout_buffer_class: Group Rollout buffer class to use. If ``None``, it will be automatically selected.
     :param group_rollout_buffer_kwargs: Keyword arguments to pass to the group rollout buffer on creation
     :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
@@ -95,7 +94,6 @@ class GRPO(BaseAlgorithm):
         max_grad_norm: float | None = 0.5,
         use_sde: bool = False,  # seems not to be relevant unless spaces.Box is supported as action space
         sde_sample_freq: int = -1,  # seems not to be relevant unless spaces.Box is supported as action space
-        supervision_type: SupervisionType = SupervisionType.PROCESS,
         group_rollout_buffer_class: type[GroupBuffer] | str | None = None,
         group_rollout_buffer_kwargs: dict[str, Any] | None = None,
         stats_window_size: int = 100,
@@ -134,7 +132,6 @@ class GRPO(BaseAlgorithm):
         self.ent_coef = ent_coef
         assert max_grad_norm is None or max_grad_norm > 0, "max_grad_norm must be None or a positive float."
         self.max_grad_norm = max_grad_norm
-        self.supervision_type = supervision_type
         if isinstance(group_rollout_buffer_class, str):
             group_rollout_buffer_class = BUFFERS.get(group_rollout_buffer_class, None)
             if group_rollout_buffer_class is None:
@@ -144,7 +141,7 @@ class GRPO(BaseAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
-        assert self.supervision_type == self.group_rollout_buffer.supervision_type
+        self.supervision_type = self.group_rollout_buffer.supervision_type
 
     def _setup_model(self):
         self._setup_lr_schedule()
@@ -172,7 +169,7 @@ class GRPO(BaseAlgorithm):
         )
         self.policy = self.policy.to(self.device)
         self.policy_ref = None
-        self.clip_range = ConstantSchedule(self.clip_range)
+        self.clip_range = FloatSchedule(self.clip_range)
         # Warn when not using CPU with MlpPolicy
         self._maybe_recommend_cpu()
 
