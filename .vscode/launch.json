@@ -112,6 +112,25 @@
                 "--seed", "0",
                 "-i", "logs/exp_16/ppo/CartPole-v1_4/best_model.zip",
             ]
-        }
+        },
+
+        {
+            "name": "Debug ActorPolicy loading from ActorPolicy",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiment_rliable_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--algo", "process-grpo",
+                "--env", "CartPole-v1",
+                "-conf", "sb3_contrib/hyperparams/process-grpo.yml",
+                "-n", "50000",
+                "--eval-freq", "1000",
+                "-f", "logs/exp_17",
+                "--seed", "0",
+                "-i", "logs/exp_16/process-grpo/CartPole-v1_4/best_model.zip",
+            ]
+        },
     ]
 }
