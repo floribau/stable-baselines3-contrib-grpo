@@ -44,7 +44,7 @@
             "name": "Debug PPO training",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/experiment_rliable.py",
+            "program": "${workspaceFolder}/experiment_rliable_train.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
@@ -62,7 +62,25 @@
             "name": "Debug GRPO training",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/experiment_rliable.py",
+            "program": "${workspaceFolder}/experiment_rliable_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--algo", "process-grpo",
+                "--env", "CartPole-v1",
+                "-conf", "sb3_contrib/hyperparams/process-grpo_train.yml",
+                "-n", "50000",
+                "--eval-freq", "1000",
+                "-f", "logs/exp_4",
+                "--seed", "0",
+            ]
+        },
+
+        {
+            "name": "Debug ActorPolicy loading from ActorCriticPolicy",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiment_rliable_train.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
@@ -71,8 +89,28 @@
                 "-conf", "sb3_contrib/hyperparams/process-grpo.yml",
                 "-n", "50000",
                 "--eval-freq", "1000",
-                "-f", "logs/exp_4",
+                "-f", "logs/exp_17",
                 "--seed", "0",
+                "-i", "logs/exp_16/ppo/CartPole-v1_4/best_model.zip",
+            ]
+        },
+
+        {
+            "name": "Debug ActorCritcPolicy loading from ActorCriticPolicy",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiment_rliable_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--algo", "ppo",
+                "--env", "CartPole-v1",
+                "-conf", "sb3_contrib/hyperparams/process-grpo.yml",
+                "-n", "50000",
+                "--eval-freq", "1000",
+                "-f", "logs/exp_17",
+                "--seed", "0",
+                "-i", "logs/exp_16/ppo/CartPole-v1_4/best_model.zip",
             ]
         }
     ]
