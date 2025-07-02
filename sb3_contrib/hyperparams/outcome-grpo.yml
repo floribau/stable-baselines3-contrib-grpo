@@ -13,7 +13,7 @@ CartPole-v1:
   # clip_range: lin_0.2
   clip_range: 0.4
   max_grad_norm: 1.4426432923372574
-  policy_kwargs: "dict(activation_fn=nn.ELU, net_arch=[64, 64])"
+  policy_kwargs: "dict(activation_fn=nn.ELU, net_arch=dict(pi=[64, 64]))"
 
 MountainCar-v0:
   normalize: true
