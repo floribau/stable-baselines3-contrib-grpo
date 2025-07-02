@@ -291,7 +291,6 @@ if TRAIN_OUTCOME_GRPO_NO_CLIPPING_NO_KL:
     outcome_grpo_no_clipping_no_kl_model = GRPO(
         "GroupPolicy",
         outcome_grpo_no_clipping_no_kl_vec_env,
-        supervision_type=SupervisionType.OUTCOME,
         group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
@@ -367,7 +366,6 @@ if TRAIN_OUTCOME_GRPO_NO_CLIPPING:
     outcome_grpo_no_clipping_model = GRPO(
         "GroupPolicy",
         outcome_grpo_no_clipping_vec_env,
-        supervision_type=SupervisionType.OUTCOME,
         group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
@@ -440,7 +438,6 @@ if TRAIN_OUTCOME_GRPO_NO_KL:
     outcome_grpo_no_kl_model = GRPO(
         "GroupPolicy",
         outcome_grpo_no_kl_vec_env,
-        supervision_type=SupervisionType.OUTCOME,
         group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,
@@ -572,7 +569,6 @@ if TRAIN_OUTCOME_GRPO:
     outcome_grpo_model = GRPO(
         "GroupPolicy",
         outcome_grpo_vec_env,
-        supervision_type=SupervisionType.OUTCOME,
         group_rollout_buffer_class=OUTCOME_SUPERVISION_BUFFER_CLASS,
         verbose=1,
         group_size=16,

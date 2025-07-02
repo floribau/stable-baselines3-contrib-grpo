@@ -351,7 +351,7 @@ class DeepSeekOutcomeGroupBuffer(GroupBuffer):
         return advantages
 
 
-BUFFERS = {
+BUFFER_CLASS_ALIASES = {
     "GroupBuffer": GroupBuffer,
     "TimestepGroupBuffer": TimestepGroupBuffer,
     "ProcessGroupBuffer": ProcessGroupBuffer,
