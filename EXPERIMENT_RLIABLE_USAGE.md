@@ -13,6 +13,7 @@ Hyperparameter Tuning uses the same file as the Training, only with some additio
 
 ### Preparatory Changes for using Optuna
 In order to use it, you need to first define a `sampler` and a `converter` function for the algorithm in [`rl_zoo3/hyperparams_opt.py`](.venv/lib/python3.10/site-packages/rl_zoo3/hyperparams_opt.py), and register the two in the `HYPERPARAMS_SAMPLER` and `HYPERPARAMS_CONVERTER` dicts.
+Also, make sure that a .yml file with default hyperparams is added to the [`hyperparams`](sb3_contrib/hyperparams) directory for your custom algorithm.
 
 Example converter function for GRPO:
 
@@ -105,6 +106,7 @@ def sample_grpo_params(trial: optuna.Trial, n_actions: int, n_envs: int, additio
 
 After having added the `converter` and `sampler` functions, run the following command to tune hyperparameters.
 Optuna will tune the hyperparameters such that the found reward after `<num_timesteps>` env interactions is optimized.
+See [`rl_zoo3/train.py`](.venv/lib/python3.10/site-packages/rl_zoo3/train.py) for more tuning options.
 
 ```bash
 python experiment_rliable_train.py \
@@ -126,6 +128,7 @@ python experiment_rliable_train.py \
 
 Run the following command to perform one training run. This should be run multiple times to collect enough data.
 Make sure your custom algorithms are registered in `ALGOS` in [`experiment_rliable_train.py`](experiment_rliable_train.py).
+See [`rl_zoo3/train.py`](.venv/lib/python3.10/site-packages/rl_zoo3/train.py) for more training options.
 
 **Note:** `num_timesteps` should be the same across all runs of the same experiment.
 
