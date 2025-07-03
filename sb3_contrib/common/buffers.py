@@ -29,7 +29,7 @@ class Trajectory:
     """Class containing one trajectory of RL rollout steps."""
 
     observations: list[np.ndarray]
-    actions: list[int]  # IDEA float for continuous actions (but PPO doesn't support continuous action spaces either)
+    actions: list[int]  # IDEA float for accepting continuous actions
     rewards: list[float]
     log_probs: list[float]
     dones: list[bool]

@@ -15,7 +15,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import FloatSchedule, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 
-from sb3_contrib.common.buffers import GroupBuffer, ProcessGroupBuffer, SupervisionType, Trajectory, BUFFER_CLASS_ALIASES
+from sb3_contrib.common.buffers import GroupBuffer, ProcessGroupBuffer, Trajectory, BUFFER_CLASS_ALIASES
 from sb3_contrib.grpo.policies import ActorPolicy
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
@@ -26,7 +26,8 @@ class GRPO(BaseAlgorithm):
     Group Relative Policy Optimization algorithm (GRPO)
 
     Paper: https://arxiv.org/pdf/2402.03300
-    Code: This implementation borrows code ideas from Emanuel Ruzak (https://github.com/emparu/PPO-vs-GRPO)
+    Code: This implementation borrows code ideas from Emanuel Ruzak (https://github.com/emparu/PPO-vs-GRPO) and
+    Stable-Baselines3's PPO implementation (https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/ppo)
 
     Introduction to GRPO: https://huggingface.co/docs/trl/main/en/grpo_trainer
 
