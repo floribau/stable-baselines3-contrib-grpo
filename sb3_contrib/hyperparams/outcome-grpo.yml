@@ -7,12 +7,12 @@ CartPole-v1:
   # n_epochs: 20
   n_epochs: 10
   # ent_coef: 0.0
-  ent_coef: 4.042900981368387e-07
+  ent_coef: 4e-07
   # learning_rate: lin_0.001
-  learning_rate: 0.0018171192304952107
+  learning_rate: 0.0018
   # clip_range: lin_0.2
   clip_range: 0.4
-  max_grad_norm: 1.4426432923372574
+  max_grad_norm: 1.443
   policy_kwargs: "dict(activation_fn=nn.ELU, net_arch=dict(pi=[64, 64]))"
 
 MountainCar-v0:
