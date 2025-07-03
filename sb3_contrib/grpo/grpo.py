@@ -31,7 +31,8 @@ class GRPO(BaseAlgorithm):
     Group Relative Policy Optimization algorithm (GRPO)
 
     Paper: https://arxiv.org/pdf/2402.03300
-    Code: This implementation borrows code ideas from Emanuel Ruzak (https://github.com/emparu/PPO-vs-GRPO)
+    Code: This implementation borrows code ideas from Emanuel Ruzak (https://github.com/emparu/PPO-vs-GRPO) and
+    Stable-Baselines3's PPO implementation (https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/ppo)
 
     Introduction to GRPO: https://huggingface.co/docs/trl/main/en/grpo_trainer
 
@@ -155,6 +156,11 @@ class GRPO(BaseAlgorithm):
             if self.group_rollout_buffer_class is None:
                 raise ValueError(f"Unknown group rollout buffer class: {self.group_rollout_buffer_class}")
 
+        if isinstance(self.group_rollout_buffer_class, str):
+            self.group_rollout_buffer_class = BUFFER_CLASS_ALIASES.get(self.group_rollout_buffer_class, None)
+            if self.group_rollout_buffer_class is None:
+                raise ValueError(f"Unknown group rollout buffer class: {self.group_rollout_buffer_class}")
+
         self.group_rollout_buffer = self.group_rollout_buffer_class(
             buffer_size=self.group_size,
             observation_space=self.observation_space,
@@ -164,6 +170,7 @@ class GRPO(BaseAlgorithm):
             n_envs=self.n_envs,
             **self.group_rollout_buffer_kwargs,
         )
+        self.supervision_type = self.group_rollout_buffer.supervision_type
         self.supervision_type = self.group_rollout_buffer.supervision_type
 
         self.policy = self.policy_class(
@@ -276,7 +283,7 @@ class GRPO(BaseAlgorithm):
         Process supvervision training method.
         """
         assert self.group_rollout_buffer.supervision_type.is_process_supervision(), "Buffer must be process supervision type."
-        # IDEA factor out policy updating, this is equal for all supervision types
+        # IDEA refactor policy updating into a separate function, this is equal for all supervision types
         pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
         advantages = self.group_rollout_buffer.get_advantages()

@@ -6,23 +6,6 @@
     "configurations": [
 
         {
-            "name": "Debug experiment",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/experiment.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp-id", "1",
-                "--alg", "ppo",
-                "--env", "CartPole-v1",
-                "--n-runs", "1",
-                "--n-training-steps", "100_000",
-                "--eval-freq", "1_000",
-                "--n-eval-episodes", "4"
-            ]
-        },
-
-        {
             "name": "Debug plot_from_file",
             "type": "debugpy",
             "request": "launch",
