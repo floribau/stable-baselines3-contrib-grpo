@@ -403,7 +403,7 @@ class GRPO(BaseAlgorithm):
         """
         pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
-        advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories, )
+        advantages = self.group_rollout_buffer.get_advantages()  # list of scalar tensors
 
         for _ in range(self.n_epochs):
 
@@ -422,8 +422,7 @@ class GRPO(BaseAlgorithm):
 
                 current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
 
-                advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)  # scalar tensor
-                # TODO check if this tensor is correct
+                advantage = advantages[traj_idx]
 
                 if self.batch_group_updates:
                     # Only collect values for batched policy update for the whole group

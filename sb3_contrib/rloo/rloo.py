@@ -133,13 +133,14 @@ class RLOO(GRPO):
         """
         # RLOO outcome supervision update method
         self.policy.set_training_mode(False)
-        advantages = self.group_rollout_buffer.get_leave_one_out_advantages()  # shape: (n_trajectories, )
+        advantages = self.group_rollout_buffer.get_leave_one_out_advantages()  # list of scalar tensors
         grads, log_probs_sums, entropies = [], [], []
 
         for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
             # Only collect values for batched policy update for the whole group
             obs, actions, old_log_probs = traj.to_tensor()  # per step log probs
-            advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)
+
+            advantage = advantages[traj_idx]
 
             if isinstance(self.action_space, spaces.Discrete):
                 # Convert discrete action from float to long
