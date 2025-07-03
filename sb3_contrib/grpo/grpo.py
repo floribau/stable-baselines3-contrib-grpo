@@ -15,7 +15,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import FloatSchedule, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 
-from sb3_contrib.common.buffers import GroupBuffer, ProcessGroupBuffer, SupervisionType, Trajectory, BUFFERS
+from sb3_contrib.common.buffers import GroupBuffer, ProcessGroupBuffer, SupervisionType, Trajectory, BUFFER_CLASS_ALIASES
 from sb3_contrib.grpo.policies import ActorPolicy
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
@@ -133,7 +133,7 @@ class GRPO(BaseAlgorithm):
         assert max_grad_norm is None or max_grad_norm > 0, "max_grad_norm must be None or a positive float."
         self.max_grad_norm = max_grad_norm
         if isinstance(group_rollout_buffer_class, str):
-            group_rollout_buffer_class = BUFFERS.get(group_rollout_buffer_class, None)
+            group_rollout_buffer_class = BUFFER_CLASS_ALIASES.get(group_rollout_buffer_class, None)
             if group_rollout_buffer_class is None:
                 raise ValueError(f"Unknown group rollout buffer class: {group_rollout_buffer_class}")
         self.group_rollout_buffer_class = group_rollout_buffer_class
@@ -141,7 +141,6 @@ class GRPO(BaseAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
-        self.supervision_type = self.group_rollout_buffer.supervision_type
 
     def _setup_model(self):
         self._setup_lr_schedule()
@@ -149,6 +148,11 @@ class GRPO(BaseAlgorithm):
 
         if self.group_rollout_buffer_class is None:
             self.group_rollout_buffer_class = ProcessGroupBuffer
+
+        if isinstance(self.group_rollout_buffer_class, str):
+            self.group_rollout_buffer_class = BUFFER_CLASS_ALIASES.get(self.group_rollout_buffer_class, None)
+            if self.group_rollout_buffer_class is None:
+                raise ValueError(f"Unknown group rollout buffer class: {self.group_rollout_buffer_class}")
 
         self.group_rollout_buffer = self.group_rollout_buffer_class(
             buffer_size=self.group_size,
@@ -159,6 +163,7 @@ class GRPO(BaseAlgorithm):
             n_envs=self.n_envs,
             **self.group_rollout_buffer_kwargs,
         )
+        self.supervision_type = self.group_rollout_buffer.supervision_type
 
         self.policy = self.policy_class(
             self.observation_space,
@@ -270,7 +275,7 @@ class GRPO(BaseAlgorithm):
         Process supvervision training method.
         """
         assert self.group_rollout_buffer.supervision_type.is_process_supervision(), "Buffer must be process supervision type."
-        # IDEA factor out policy updating, this is equal for all supervision types
+        # IDEA refactor policy updating into a separate function, this is equal for all supervision types
         pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
         advantages = self.group_rollout_buffer.get_advantages()
