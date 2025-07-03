@@ -16,7 +16,7 @@ from experiments.utils import RLAlgorithm
 
 warn(
     "This script is legacy code that should not be used anymore. "
-    "Please refer to the guide at `EXPERIMENT_RLIABLE_USAGE.md` for help about "
+    "Please consult the guide at `EXPERIMENT_RLIABLE_USAGE.md` for help about "
     "how to use SB3's RL-Zoo3 for clean training runs and results plotting.",
     DeprecationWarning,
 )
@@ -40,7 +40,6 @@ with open(os.path.join(exp_path, f"exp_{args.exp_id}_config.json"), "r", encodin
     exp_config = json.load(f)
 num_timesteps = exp_config.get("n_training_steps", 0)
 eval_freq = exp_config.get("eval_freq", 0)
-num_common_steps = max(int(num_timesteps / eval_freq), 1)  # TODO does this work for plot_updates as well?
 
 # Plot curves for each algorithm averaged over runs
 plt.figure(figsize=(14, 5))
@@ -115,7 +114,7 @@ if args.plot_updates:
             seen = set()
             indices = []
             for idx, upd in enumerate(updates):
-                # TODO check if I can do this with np.unique
+                # IDEA check if I can do this with np.unique
                 if upd not in seen:
                     indices.append(idx)
                     seen.add(upd)

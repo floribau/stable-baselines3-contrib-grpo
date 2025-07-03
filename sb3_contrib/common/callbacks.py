@@ -6,16 +6,9 @@ import os
 
 import gymnasium as gym
 import numpy as np
-from rl_zoo3.callbacks import TrialEvalCallback
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecEnv, sync_envs_normalization
-
-
-class AUCTrialEvalCallback(TrialEvalCallback):
-    """
-    TODO implement
-    """
 
 
 class UpdatesEvalCallback(EvalCallback):
@@ -148,6 +141,6 @@ class UpdatesEvalCallback(EvalCallback):
             if self.callback is not None:
                 continue_training = continue_training and self._on_event()
 
-        # TODO insert eval logic here after n_timesteps and n_updates -> ensure that x-axis is consistent across runs
+        # IDEA insert eval logic here after n_timesteps and n_updates -> ensure that x-axis is consistent across runs
 
         return continue_training
