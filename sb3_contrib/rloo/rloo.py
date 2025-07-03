@@ -95,7 +95,6 @@ class RLOO(GRPO):
             max_grad_norm=max_grad_norm,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
-            supervision_type=SupervisionType.OUTCOME,  # RLOO uses outcome supervision
             group_rollout_buffer_class=group_rollout_buffer_class,
             group_rollout_buffer_kwargs=group_rollout_buffer_kwargs,
             stats_window_size=stats_window_size,
@@ -106,6 +105,10 @@ class RLOO(GRPO):
             seed=seed,
             device=device,
             _init_setup_model=_init_setup_model,
+        )
+        assert self.supervision_type == SupervisionType.OUTCOME, (
+            "RLOO is an outcome supervision method by definition. "
+            "Please use a group rollout buffer with SupervisionType.OUTCOME."
         )
 
     def train(self) -> None:
