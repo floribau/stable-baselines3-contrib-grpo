@@ -23,12 +23,11 @@ from sb3_contrib.common.callbacks import UpdatesEvalCallback
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.rloo.rloo import RLOO
 
-
 warn(
-    "This script is legacy code that should not be used anymore. " \
-    "Please refer to the guide at `EXPERIMENT_RLIABLE_USAGE.md` for help about " \
+    "This script is legacy code that should not be used anymore. "
+    "Please refer to the guide at `EXPERIMENT_RLIABLE_USAGE.md` for help about "
     "how to use SB3's RL-Zoo3 for clean training runs and results plotting.",
-    DeprecationWarning
+    DeprecationWarning,
 )
 
 parser = argparse.ArgumentParser()

@@ -14,12 +14,11 @@ import numpy as np
 import experiments.utils as exp_utils
 from experiments.utils import RLAlgorithm
 
-
 warn(
-    "This script is legacy code that should not be used anymore. " \
-    "Please refer to the guide at `EXPERIMENT_RLIABLE_USAGE.md` for help about " \
+    "This script is legacy code that should not be used anymore. "
+    "Please refer to the guide at `EXPERIMENT_RLIABLE_USAGE.md` for help about "
     "how to use SB3's RL-Zoo3 for clean training runs and results plotting.",
-    DeprecationWarning
+    DeprecationWarning,
 )
 
 parser = argparse.ArgumentParser()

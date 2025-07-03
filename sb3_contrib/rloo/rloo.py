@@ -9,7 +9,7 @@ import torch as th
 from gymnasium import spaces
 from stable_baselines3.common.type_aliases import MaybeCallback
 
-from sb3_contrib.common.buffers import DeepSeekOutcomeGroupBuffer, SupervisionType, GroupBuffer
+from sb3_contrib.common.buffers import DeepSeekOutcomeGroupBuffer, GroupBuffer, SupervisionType
 from sb3_contrib.grpo.grpo import GRPO
 
 SelfRLOO = TypeVar("SelfRLOO", bound="RLOO")
