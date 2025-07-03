@@ -59,3 +59,49 @@ exclude_lines = [
 
 # [tool.pyright]
 # extraPaths = ["../torchy-baselines/"]
+
+[project]
+name = "stable-baselines3-contrib-grpo"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Florian Bauer",email = "florian.bauer@adago.de"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+stable-baselines3 = { git = "https://github.com/DLR-RM/stable-baselines3", branch = "master" }  # use newest SB3 version
+ale-py = ">=0.9.0"
+cloudpickle = "*"
+gymnasium = {extras = ["accept-rom-license", "atari"], version = "^1.1.1"}
+matplotlib = "*"
+numpy = ">=1.20,<3.0"
+opencv-python = "*"
+pandas = "*"
+pillow = "*"
+psutil = "*"
+pygame = "*"
+rich = "*"
+tensorboard = ">=2.9.1"
+torch = ">=2.3,<3.0"
+tqdm = "*"
+ruff = "^0.11.12"
+black = "^25.1.0"
+isort = "^6.0.1"
+snakeviz = "^2.2.2"
+swig = "^4.3.1"
+ale = "^0.8.4"
+box2d = "^2.3.10"
+rl-zoo3 = "^2.6.0"
+strenum = "^0.4.15"
+rliable = "^1.2.0"
+wandb = "^0.20.1"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

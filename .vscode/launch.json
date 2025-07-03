@@ -1,0 +1,62 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Debug plot_from_file",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "rl_zoo3.plots.plot_from_file",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-i", "logs/exp_4/all_plots.pkl",
+                "-l", "PPO", "ProcessGRPO",
+                "-r",
+                "-vs",
+                "-iqm",
+                "-b",
+                "-o", "logs/exp_4/plot_from_file",
+            ]
+        },
+
+        {
+            "name": "Debug PPO training",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiment_rliable_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--algo", "ppo",
+                "--env", "CartPole-v1",
+                "-conf", "sb3_contrib/hyperparams/ppo.yml",
+                "-n", "50000",
+                "--eval-freq", "1000",
+                "-f", "logs/exp_4",
+                "--seed", "0",
+            ]
+        },
+
+        {
+            "name": "Debug GRPO training",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiment_rliable_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--algo", "process-grpo",
+                "--env", "CartPole-v1",
+                "-conf", "sb3_contrib/hyperparams/process-grpo_train.yml",
+                "-n", "50000",
+                "--eval-freq", "1000",
+                "-f", "logs/exp_4",
+                "--seed", "0",
+            ]
+        },
+    ]
+}

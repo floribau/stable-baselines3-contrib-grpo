@@ -1,0 +1,3 @@
+CartPole-v1:
+  policy: 'MlpPolicy'
+  n_timesteps: !!float 1e5
