@@ -6,12 +6,21 @@ import argparse
 import json
 import os
 from datetime import datetime
+from warnings import warn
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 import experiments.utils as exp_utils
 from experiments.utils import RLAlgorithm
+
+
+warn(
+    "This script is legacy code that should not be used anymore. " \
+    "Please refer to the guide at `EXPERIMENT_RLIABLE_USAGE.md` for help about " \
+    "how to use SB3's RL-Zoo3 for clean training runs and results plotting.",
+    DeprecationWarning
+)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--exp-id", type=int, required=True, help="Experiment ID")

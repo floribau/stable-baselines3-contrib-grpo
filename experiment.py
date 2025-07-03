@@ -3,6 +3,7 @@
 import argparse
 import os
 import time
+from warnings import warn
 
 import numpy as np
 from stable_baselines3.common.callbacks import EvalCallback
@@ -22,6 +23,14 @@ from sb3_contrib.common.callbacks import UpdatesEvalCallback
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.rloo.rloo import RLOO
 
+
+warn(
+    "This script is legacy code that should not be used anymore. " \
+    "Please refer to the guide at `EXPERIMENT_RLIABLE_USAGE.md` for help about " \
+    "how to use SB3's RL-Zoo3 for clean training runs and results plotting.",
+    DeprecationWarning
+)
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--exp-id", type=int, required=True, help="Experiment ID")
 parser.add_argument(
@@ -32,7 +41,7 @@ parser.add_argument(
     choices=list(map(str, RLAlgorithm)),
     help="Algorithm(s) to use. Can be passed multiple times, e.g., --alg rloo --alg ppo",
 )
-parser.add_argument("--env", type=str, required=True, help="Environment name")  # TODO add choices for environments
+parser.add_argument("--env", type=str, required=True, help="Environment name")
 parser.add_argument("--normalize-env", action="store_true", help="Whether to normalize the environment")
 parser.add_argument("--n-runs", type=int, default=1, help="Number of runs for the experiment")
 parser.add_argument("--n-timesteps", type=int, default=100_000, help="Number of training steps per run")
