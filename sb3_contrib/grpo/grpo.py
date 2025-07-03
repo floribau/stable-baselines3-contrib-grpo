@@ -138,10 +138,10 @@ class GRPO(BaseAlgorithm):
         self.ent_coef = ent_coef
         assert max_grad_norm is None or max_grad_norm > 0, "max_grad_norm must be None or a positive float."
         self.max_grad_norm = max_grad_norm
-        if isinstance(self.group_rollout_buffer_class, str):
-            self.group_rollout_buffer_class = BUFFER_CLASS_ALIASES.get(self.group_rollout_buffer_class, None)
-            if self.group_rollout_buffer_class is None:
-                raise ValueError(f"Unknown group rollout buffer class: {self.group_rollout_buffer_class}")
+        if isinstance(group_rollout_buffer_class, str):
+            group_rollout_buffer_class = BUFFER_CLASS_ALIASES.get(group_rollout_buffer_class, None)
+            if group_rollout_buffer_class is None:
+                raise ValueError(f"Unknown group rollout buffer class: {group_rollout_buffer_class}")
         self.group_rollout_buffer_class = group_rollout_buffer_class
         self.group_rollout_buffer_kwargs = group_rollout_buffer_kwargs or {}
 
