@@ -32,9 +32,27 @@ from torch import nn
 
 class ActorPolicy(BasePolicy):
     """
-    Policy class only including an actor but no critic.
-    This class mainly implements the same methods as SB3's `ActorCriticPolicy`, but without the critic part.
-    It is used in GRPO to implement the actor policy.
+    Policy class for actor-only algorithms. Used by GRPO, RLOO and the likes.
+    This policy mainly implements the same methods as SB3's `ActorCriticPolicy`, but without the critic part.
+
+    :param observation_space: Observation space
+    :param action_space: Action space
+    :param lr_schedule: Learning rate schedule (could be constant)
+    :param net_arch: The specification of the policy and value networks.
+    :param activation_fn: Activation function
+    :param ortho_init: Whether to use or not orthogonal initialization
+    :param use_sde: Whether to use State Dependent Exploration or not
+    :param log_std_init: Initial value for the log standard deviation
+    :param full_std: Whether to use (n_features x n_actions) parameters
+        for the std instead of only (n_features,) when using gSDE
+    :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure a positive standard deviation (cf paper).
+        It allows to keep variance above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
+    :param squash_output: Whether to squash the output using a tanh function, this allows to ensure boundaries when using gSDE.
+    :param features_extractor_class: Features extractor to use.
+    :param features_extractor_kwargs: Keyword arguments to pass to the features extractor.
+    :param normalize_images: Whether to normalize images or not, dividing by 255.0 (True by default)
+    :param optimizer_class: The optimizer to use, ``th.optim.Adam`` by default
+    :param optimizer_kwargs: Additional keyword arguments, excluding the learning rate, to pass to the optimizer
     """
 
     def __init__(
@@ -224,7 +242,7 @@ class ActorPolicy(BasePolicy):
 
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> tuple[th.Tensor, th.Tensor]:
         """
-        Forward pass in all the networks (actor and critic)
+        Forward pass in the actor network.
 
         :param obs: Observation
         :param deterministic: Whether to sample or use deterministic actions
@@ -335,32 +353,66 @@ class ActorPolicy(BasePolicy):
 
         return frozen_policy
 
-    @classmethod
-    def load_from_actor_critic_policy(
-        cls,
-        path: str,
-        device: th.device | str = "auto",
-    ) -> "ActorPolicy":
-        """
-        Load an ActorPolicy model from a saved ActorCriticPolicy.
 
-        :param path: Path to the saved policy.
-        :param device: Device ton which the policy should be loaded.
-        :return: An instance of ActorPolicy.
-        """
-        device = get_device(device)
-        # Note(antonin): we cannot use `weights_only=True` here because we need to allow
-        # gymnasium imports for the policy to be loaded successfully
-        saved_variables = th.load(path, map_location=device, weights_only=False)
+class ActorCnnPolicy(ActorPolicy):
+    """
+    CNN policy class for actor-only algorithms.
+    Used by GRPO, RLOO and the likes.
 
-        # Create policy object
-        model = cls(**saved_variables["data"])  # TODO do i need to preprocess data?
-        # Load weights
-        model.load_state_dict(saved_variables["state_dict"])  # TODO do i need to preprocess state_dict?
-        model.to(device)
-        return model
+    :param observation_space: Observation space
+    :param action_space: Action space
+    :param lr_schedule: Learning rate schedule (could be constant)
+    :param net_arch: The specification of the policy and value networks.
+    :param activation_fn: Activation function
+    :param ortho_init: Whether to use or not orthogonal initialization
+    :param use_sde: Whether to use State Dependent Exploration or not
+    :param log_std_init: Initial value for the log standard deviation
+    :param full_std: Whether to use (n_features x n_actions) parameters
+        for the std instead of only (n_features,) when using gSDE
+    :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure a positive standard deviation (cf paper).
+        It allows to keep variance above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
+    :param squash_output: Whether to squash the output using a tanh function, this allows to ensure boundaries when using gSDE.
+    :param features_extractor_class: Features extractor to use.
+    :param features_extractor_kwargs: Keyword arguments to pass to the features extractor.
+    :param normalize_images: Whether to normalize images or not, dividing by 255.0 (True by default)
+    :param optimizer_class: The optimizer to use, ``th.optim.Adam`` by default
+    :param optimizer_kwargs: Additional keyword arguments, excluding the learning rate, to pass to the optimizer
+    """
 
-    @classmethod
-    def load(cls, path: str, device: th.device | str = "auto") -> "ActorPolicy":
-        # DEBUG temporarily overwrite the load method to use the new loading function
-        return cls.load_from_actor_critic_policy(path, device=device)
+    def __init__(
+        self,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        lr_schedule: Schedule,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
+        activation_fn: type[nn.Module] = nn.Tanh,
+        ortho_init: bool = True,
+        use_sde: bool = False,
+        log_std_init: float = 0.0,
+        full_std: bool = True,
+        use_expln: bool = False,
+        squash_output: bool = False,
+        features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
+        features_extractor_kwargs: dict[str, Any] | None = None,
+        normalize_images: bool = True,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: dict[str, Any] | None = None,
+    ):
+        super().__init__(
+            observation_space,
+            action_space,
+            lr_schedule,
+            net_arch=net_arch,
+            activation_fn=activation_fn,
+            ortho_init=ortho_init,
+            use_sde=use_sde,
+            log_std_init=log_std_init,
+            full_std=full_std,
+            use_expln=use_expln,
+            squash_output=squash_output,
+            features_extractor_class=features_extractor_class,
+            features_extractor_kwargs=features_extractor_kwargs,
+            normalize_images=normalize_images,
+            optimizer_class=optimizer_class,
+            optimizer_kwargs=optimizer_kwargs,
+        )

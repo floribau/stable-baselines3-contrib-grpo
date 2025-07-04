@@ -9,7 +9,7 @@ import torch as th
 from gymnasium import spaces
 from stable_baselines3.common.type_aliases import MaybeCallback
 
-from sb3_contrib.common.buffers import DeepSeekOutcomeGroupBuffer, SupervisionType, GroupBuffer
+from sb3_contrib.common.buffers import DeepSeekOutcomeGroupBuffer, BaseGroupBuffer, SupervisionType
 from sb3_contrib.grpo.grpo import GRPO
 
 SelfRLOO = TypeVar("SelfRLOO", bound="RLOO")
@@ -68,7 +68,7 @@ class RLOO(GRPO):
         max_grad_norm=0.5,
         use_sde=False,
         sde_sample_freq=-1,
-        group_rollout_buffer_class: type[GroupBuffer] | str | None = DeepSeekOutcomeGroupBuffer,
+        group_rollout_buffer_class: type[BaseGroupBuffer] | str | None = DeepSeekOutcomeGroupBuffer,
         group_rollout_buffer_kwargs=None,
         stats_window_size=100,
         tensorboard_log=None,
@@ -95,7 +95,6 @@ class RLOO(GRPO):
             max_grad_norm=max_grad_norm,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
-            supervision_type=SupervisionType.OUTCOME,  # RLOO uses outcome supervision
             group_rollout_buffer_class=group_rollout_buffer_class,
             group_rollout_buffer_kwargs=group_rollout_buffer_kwargs,
             stats_window_size=stats_window_size,
@@ -106,6 +105,10 @@ class RLOO(GRPO):
             seed=seed,
             device=device,
             _init_setup_model=_init_setup_model,
+        )
+        assert self.supervision_type == SupervisionType.OUTCOME, (
+            "RLOO is an outcome supervision method by definition. "
+            "Please use a group rollout buffer with SupervisionType.OUTCOME."
         )
 
     def train(self) -> None:
@@ -127,15 +130,18 @@ class RLOO(GRPO):
     def _train_rloo(self) -> tuple[list, list, list, list]:
         """
         RLOO training method (outcome supervision by definition).
+
+        :return: Tuple of lists containing the policy gradient loss, KL loss, entropy loss, and total loss.
         """
         # RLOO outcome supervision update method
         self.policy.set_training_mode(False)
-        advantages = self.group_rollout_buffer.get_leave_one_out_advantages()  # shape: (n_trajectories, )
+        advantages = self.group_rollout_buffer.get_leave_one_out_advantages()  # list of scalar tensors
         grads, log_probs_sums, entropies = [], [], []
 
         for traj_idx, traj in enumerate(self.group_rollout_buffer.trajectories):
             # Only collect values for batched policy update for the whole group
             obs, actions, old_log_probs = traj.to_tensor()  # per step log probs
+
             advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)
 
             if isinstance(self.action_space, spaces.Discrete):

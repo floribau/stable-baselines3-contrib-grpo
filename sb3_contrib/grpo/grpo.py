@@ -20,8 +20,8 @@ from stable_baselines3.common.utils import FloatSchedule, obs_as_tensor, safe_me
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.vec_env.patch_gym import _convert_space
 
-from sb3_contrib.common.buffers import GroupBuffer, ProcessGroupBuffer, Trajectory, BUFFER_CLASS_ALIASES
-from sb3_contrib.grpo.policies import ActorPolicy
+from sb3_contrib.common.buffers import BUFFER_CLASS_ALIASES, BaseGroupBuffer, ProcessGroupBuffer, Trajectory
+from sb3_contrib.grpo.policies import ActorPolicy, ActorCnnPolicy
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
 
@@ -73,14 +73,17 @@ class GRPO(BaseAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    group_rollout_buffer: GroupBuffer
+    group_rollout_buffer: BaseGroupBuffer
     policy: ActorPolicy
     policy_ref: ActorPolicy | None
 
     policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": ActorPolicy,
-        "ActorPolicy": ActorPolicy,
-        "GroupPolicy": ActorPolicy,
+        "ActorPolicy": ActorPolicy,  # alias for MlpPolicy
+        "GroupPolicy": ActorPolicy,  # alias for MlpPolicy
+        "CnnPolicy:": ActorCnnPolicy,
+        "ActorCnnPolicy": ActorCnnPolicy,  # alias for CnnPolicy
+        "GroupCnnPolicy": ActorCnnPolicy,  # alias for CnnPolicy
     }
 
     def __init__(
@@ -100,7 +103,7 @@ class GRPO(BaseAlgorithm):
         max_grad_norm: float | None = 0.5,
         use_sde: bool = False,  # seems not to be relevant unless spaces.Box is supported as action space
         sde_sample_freq: int = -1,  # seems not to be relevant unless spaces.Box is supported as action space
-        group_rollout_buffer_class: type[GroupBuffer] | str | None = None,
+        group_rollout_buffer_class: type[BaseGroupBuffer] | str | None = None,
         group_rollout_buffer_kwargs: dict[str, Any] | None = None,
         stats_window_size: int = 100,
         tensorboard_log: bool = None,
@@ -150,7 +153,7 @@ class GRPO(BaseAlgorithm):
 
     def _setup_model(self):
         self._setup_lr_schedule()
-        self.set_random_seed(self.seed)  # TODO this needs to be adjusted (not really used for env creation)
+        self.set_random_seed(self.seed)
 
         if self.group_rollout_buffer_class is None:
             self.group_rollout_buffer_class = ProcessGroupBuffer
@@ -205,7 +208,9 @@ class GRPO(BaseAlgorithm):
             )
 
     def collect_group_rollouts(self, env: VecEnv, callback: BaseCallback, group_size: int):
-        """Collect a group of rollouts from the current policy and returns it as a group buffer."""
+        """
+        Collect a group of rollouts from the current policy and returns it as a group buffer.
+        """
         assert self.group_rollout_buffer is not None, "Group rollout buffer must be initialized before collecting rollouts."
 
         # Switch to eval mode (this affects batch norm / dropout)
@@ -251,7 +256,9 @@ class GRPO(BaseAlgorithm):
             callback.on_rollout_end()
 
     def train(self) -> None:
-        """Update policy params."""
+        """
+        Update policy params.
+        """
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
         # Update optimizer learning rate
@@ -279,6 +286,8 @@ class GRPO(BaseAlgorithm):
     def _train_process_supervision(self, clip_range: float) -> tuple[list, list, list, list, list]:
         """
         Process supvervision training method.
+
+        :return: Tuple of lists containing the policy gradient loss, KL loss, entropy loss, clip fraction, and total loss.
         """
         assert self.group_rollout_buffer.supervision_type.is_process_supervision(), "Buffer must be process supervision type."
         # IDEA refactor policy updating into a separate function, this is equal for all supervision types
@@ -405,10 +414,12 @@ class GRPO(BaseAlgorithm):
     def _train_outcome_supervision(self, clip_range: float) -> tuple[list, list, list, list, list]:
         """
         Outcome supervision training method.
+
+        :return: Tuple of lists containing the policy gradient loss, KL loss, entropy loss, clip fraction, and total loss.
         """
         pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
-        advantages = self.group_rollout_buffer.get_advantages()  # shape: (n_trajectories, )
+        advantages = self.group_rollout_buffer.get_advantages()  # list of scalar tensors
 
         for _ in range(self.n_epochs):
 
@@ -427,8 +438,7 @@ class GRPO(BaseAlgorithm):
 
                 current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
 
-                advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)  # scalar tensor
-                # TODO check if this tensor is correct
+                advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)
 
                 if self.batch_group_updates:
                     # Only collect values for batched policy update for the whole group
