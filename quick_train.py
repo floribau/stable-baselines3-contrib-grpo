@@ -1,9 +1,12 @@
-"""Main module to run GRPO on CartPole-v1 environment."""
+"""
+Module to quickly run RL algorithms (GRPO, RLOO, CISPO, PPO, ...) on gym environments. This is not a proper experiment,
+nor is it integrated with RL-Zoo3, so it shouldn't really be used apart from for quick runs and visual plot inspection.
+Some algorithms also have the option of using profiling for time analysis.
+"""
 
 import cProfile
 import os
 import time
-import warnings
 from datetime import datetime
 
 import gymnasium as gym
@@ -17,14 +20,11 @@ from stable_baselines3.ppo import PPO
 from sb3_contrib.common.buffers import (
     DeepSeekOutcomeGroupBuffer,
     DeepSeekProcessGroupBuffer,
-    GroupBuffer,
+    BaseGroupBuffer,
     ProcessGroupBuffer,
-    SupervisionType,
 )
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.rloo.rloo import RLOO
-
-warnings.filterwarnings("error", category=RuntimeWarning)  # DEBUG line for temporarily converting warnings to errors
 
 
 def make_custom_env():
@@ -32,8 +32,8 @@ def make_custom_env():
     return gym.make(ENV_NAME, render_mode="rgb_array", is_slippery=False)
 
 
-PROCESS_SUPERVISION_BUFFER_CLASS: type[GroupBuffer] = ProcessGroupBuffer
-OUTCOME_SUPERVISION_BUFFER_CLASS: type[GroupBuffer] = DeepSeekOutcomeGroupBuffer
+PROCESS_SUPERVISION_BUFFER_CLASS: type[BaseGroupBuffer] = ProcessGroupBuffer
+OUTCOME_SUPERVISION_BUFFER_CLASS: type[BaseGroupBuffer] = DeepSeekOutcomeGroupBuffer
 
 ENV_NAME = "CartPole-v1"
 ENV_CALLABLE = ENV_NAME
@@ -122,6 +122,7 @@ if TRAIN_OUTCOME_RLOO:
     print("Starting Outcome RLOO training...")
     start_time = time.time()
 
+    # Uncomment the following lines to enable profiling
     # pr = cProfile.Profile()
     # print("Starting Outcome RLOO profiling...")
     # pr.enable()  # Start profiling
@@ -130,6 +131,7 @@ if TRAIN_OUTCOME_RLOO:
     # rloo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
     outcome_rloo_model.save(f"{MODELS_PATH}outcome_rloo_model")
 
+    # Uncomment the following lines to enable profiling
     # pr.disable()
     # print("Outcome RLOO profiling completed. Saving profiling data...")
     # pr.dump_stats(f"./eval/profiling_outputs/outcome_rloo_profile_{timestamp}.prof")
@@ -171,6 +173,7 @@ if TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING:
     print("Starting Outcome RLOO without grad clipping training...")
     start_time = time.time()
 
+    # Uncomment the following lines to enable profiling
     # pr = cProfile.Profile()
     # print("Starting Outcome RLOO without grad clipping profiling...")
     # pr.enable()  # Start profiling
@@ -181,6 +184,7 @@ if TRAIN_OUTCOME_RLOO_NO_GRAD_CLIPPING:
     # rloo_no_grad_clipping_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
     outcome_rloo_no_grad_clipping_model.save(f"{MODELS_PATH}outcome_rloo_no_grad_clipping_model")
 
+    # Uncomment the following lines to enable profiling
     # pr.disable()
     # print("Outcome RLOO without grad clipping profiling completed. Saving profiling data...")
     # pr.dump_stats(f"./eval/profiling_outputs/rloo_no_grad_clipping_profile_{timestamp}.prof")
@@ -483,6 +487,7 @@ if TRAIN_PROCESS_GRPO:
     print("Starting Process GRPO training...")
     start_time = time.time()
 
+    # Uncomment the following lines to enable profiling
     # pr = cProfile.Profile()
     # print("Starting Process GRPO profiling...")
     # pr.enable()  # Start profiling
@@ -491,6 +496,7 @@ if TRAIN_PROCESS_GRPO:
     # process_grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
     process_grpo_model.save(f"{MODELS_PATH}process_grpo_model")
 
+    # Uncomment the following lines to enable profiling
     # pr.disable()
     # print("Process GRPO profiling completed. Saving profiling data...")
     # pr.dump_stats(f"./eval/profiling_outputs/process_grpo_profile_{timestamp}.prof")
@@ -527,6 +533,7 @@ if TRAIN_DEEPSEEK_PROCESS_GRPO:
     print("Starting DeepSeek Process GRPO training...")
     start_time = time.time()
 
+    # Uncomment the following lines to enable profiling
     # pr = cProfile.Profile()
     # print("Starting DeepSeek Process GRPO profiling...")
     # pr.enable()  # Start profiling
@@ -535,19 +542,13 @@ if TRAIN_DEEPSEEK_PROCESS_GRPO:
     # process_grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
     process_grpo_model.save(f"{MODELS_PATH}deepseek_process_grpo_model")
 
+    # Uncomment the following lines to enable profiling
     # pr.disable()
     # print("DeeepSeek Process GRPO profiling completed. Saving profiling data...")
     # pr.dump_stats(f"./eval/profiling_outputs/deepseek_process_grpo_profile_{timestamp}.prof")
 
     end_time = time.time()
     print(f"DeepSeek Process GRPO training completed in {(end_time - start_time):.2f} seconds.")
-
-    # NOTE only for visual inspection
-    obs = process_grpo_vec_env.reset()
-    for _ in range(N_RENDER_STEPS):
-        action, _states = process_grpo_model.predict(obs)
-        obs, rewards, dones, info = process_grpo_vec_env.step(action)
-        process_grpo_vec_env.render("human")
 
 if TRAIN_OUTCOME_GRPO:
     # Outcome supervision GRPO
@@ -578,6 +579,7 @@ if TRAIN_OUTCOME_GRPO:
     print("Starting Outcome GRPO training...")
     start_time = time.time()
 
+    # Uncomment the following lines to enable profiling
     # pr = cProfile.Profile()
     # print("Starting Outcome GRPO profiling...")
     # pr.enable()  # Start profiling
@@ -586,6 +588,7 @@ if TRAIN_OUTCOME_GRPO:
     # outcome_grpo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
     outcome_grpo_model.save(f"{MODELS_PATH}outcome_grpo_model")
 
+    # Uncomment the following lines to enable profiling
     # pr.disable()
     # print("Outcome GRPO profiling completed. Saving profiling data...")
     # pr.dump_stats(f"./eval/profiling_outputs/outcome_grpo_profile_{timestamp}.prof")
@@ -621,6 +624,7 @@ if TRAIN_PPO:
     print("Starting PPO training...")
     start_time = time.time()
 
+    # Uncomment the following lines to enable profiling
     # pr = cProfile.Profile()
     # print("Starting PPO profiling...")
     # pr.enable()  # Start profiling
@@ -629,19 +633,13 @@ if TRAIN_PPO:
     # ppo_model.learn(total_timesteps=N_TRAINING_TIMESTEPS)
     ppo_model.save(f"{MODELS_PATH}ppo_model")
 
+    # Uncomment the following lines to enable profiling
     # pr.disable()
     # print("PPO profiling completed. Saving profiling data...")
     # pr.dump_stats(f"./eval/profiling_outputs/ppo_profile_{timestamp}.prof")
 
     end_time = time.time()
     print(f"PPO training completed in {(end_time - start_time):.2f} seconds.")
-
-    # NOTE only for visual inspection
-    obs = ppo_vec_env.reset()
-    for _ in range(N_RENDER_STEPS):
-        action, _states = ppo_model.predict(obs)
-        obs, rewards, dones, info = ppo_vec_env.step(action)
-        ppo_vec_env.render("human")
 
 # --- Plotting Evaluation Results ---
 if PLOT_EVAL_RESULTS:

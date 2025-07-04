@@ -6,7 +6,6 @@ import argparse
 import os
 
 import numpy as np
-
 from rl_zoo3.plots.all_plots import all_plots
 
 
