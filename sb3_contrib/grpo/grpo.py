@@ -15,7 +15,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import FloatSchedule, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 
-from sb3_contrib.common.buffers import BUFFER_CLASS_ALIASES, GroupBuffer, ProcessGroupBuffer, Trajectory
+from sb3_contrib.common.buffers import BUFFER_CLASS_ALIASES, BaseGroupBuffer, ProcessGroupBuffer, Trajectory
 from sb3_contrib.grpo.policies import ActorPolicy
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
@@ -68,7 +68,7 @@ class GRPO(BaseAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    group_rollout_buffer: GroupBuffer
+    group_rollout_buffer: BaseGroupBuffer
     policy: ActorPolicy
     policy_ref: ActorPolicy | None
 
@@ -95,7 +95,7 @@ class GRPO(BaseAlgorithm):
         max_grad_norm: float | None = 0.5,
         use_sde: bool = False,  # seems not to be relevant unless spaces.Box is supported as action space
         sde_sample_freq: int = -1,  # seems not to be relevant unless spaces.Box is supported as action space
-        group_rollout_buffer_class: type[GroupBuffer] | str | None = None,
+        group_rollout_buffer_class: type[BaseGroupBuffer] | str | None = None,
         group_rollout_buffer_kwargs: dict[str, Any] | None = None,
         stats_window_size: int = 100,
         tensorboard_log: bool = None,

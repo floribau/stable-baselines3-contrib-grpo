@@ -20,7 +20,7 @@ from stable_baselines3.ppo import PPO
 from sb3_contrib.common.buffers import (
     DeepSeekOutcomeGroupBuffer,
     DeepSeekProcessGroupBuffer,
-    GroupBuffer,
+    BaseGroupBuffer,
     ProcessGroupBuffer,
 )
 from sb3_contrib.grpo.grpo import GRPO
@@ -32,8 +32,8 @@ def make_custom_env():
     return gym.make(ENV_NAME, render_mode="rgb_array", is_slippery=False)
 
 
-PROCESS_SUPERVISION_BUFFER_CLASS: type[GroupBuffer] = ProcessGroupBuffer
-OUTCOME_SUPERVISION_BUFFER_CLASS: type[GroupBuffer] = DeepSeekOutcomeGroupBuffer
+PROCESS_SUPERVISION_BUFFER_CLASS: type[BaseGroupBuffer] = ProcessGroupBuffer
+OUTCOME_SUPERVISION_BUFFER_CLASS: type[BaseGroupBuffer] = DeepSeekOutcomeGroupBuffer
 
 ENV_NAME = "CartPole-v1"
 ENV_CALLABLE = ENV_NAME
