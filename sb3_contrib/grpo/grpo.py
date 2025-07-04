@@ -14,14 +14,14 @@ from gymnasium import spaces
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.policies import BasePolicy
-from stable_baselines3.common.save_util import recursive_setattr, load_from_zip_file
+from stable_baselines3.common.save_util import load_from_zip_file, recursive_setattr
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import FloatSchedule, obs_as_tensor, safe_mean, check_for_correct_spaces, get_system_info
+from stable_baselines3.common.utils import FloatSchedule, check_for_correct_spaces, get_system_info, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.vec_env.patch_gym import _convert_space
 
 from sb3_contrib.common.buffers import BUFFER_CLASS_ALIASES, BaseGroupBuffer, ProcessGroupBuffer, Trajectory
-from sb3_contrib.grpo.policies import ActorPolicy, ActorCnnPolicy
+from sb3_contrib.grpo.policies import ActorCnnPolicy, ActorPolicy
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
 
@@ -639,7 +639,18 @@ class GRPO(BaseAlgorithm):
         data["n_envs"] = 1
 
         # Delete unused PPO information
-        for key in ["n_steps", "gae_lambda", "vf_coef", "rollout_buffer_class", "rollout_buffer_kwargs", "target_kl", "batch_size", "_last_obs", "_last_episode_starts", "policy_class"]:
+        for key in [
+            "n_steps",
+            "gae_lambda",
+            "vf_coef",
+            "rollout_buffer_class",
+            "rollout_buffer_kwargs",
+            "target_kl",
+            "batch_size",
+            "_last_obs",
+            "_last_episode_starts",
+            "policy_class",
+        ]:
             if key in data:
                 del data[key]
 
@@ -699,10 +710,7 @@ class GRPO(BaseAlgorithm):
         model._setup_model()
 
         try:
-            params["policy"] = OrderedDict(
-                (k, v) for k, v in params["policy"].items()
-                if "value_net" not in k
-            )
+            params["policy"] = OrderedDict((k, v) for k, v in params["policy"].items() if "value_net" not in k)
             model.set_parameters(params, exact_match=True, device=device)
         except RuntimeError as e:
             # Patch to load policies saved using SB3 < 1.7.0

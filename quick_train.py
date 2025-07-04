@@ -18,9 +18,9 @@ from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.ppo import PPO
 
 from sb3_contrib.common.buffers import (
+    BaseGroupBuffer,
     DeepSeekOutcomeGroupBuffer,
     DeepSeekProcessGroupBuffer,
-    BaseGroupBuffer,
     ProcessGroupBuffer,
 )
 from sb3_contrib.grpo.grpo import GRPO
