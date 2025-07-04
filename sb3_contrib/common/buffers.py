@@ -331,10 +331,10 @@ class DeepSeekOutcomeGroupBuffer(GroupBuffer):
         self._maybe_compute_returns()
         print(self.returns)
         mean_return = th.stack(self.returns).mean()
-        std_return = th.stack(self.returns).std()
 
         advantages = [r - mean_return for r in self.returns]
         if self.scale_rewards:
+            std_return = th.stack(self.returns).std()
             advantages = [a / (std_return + 1e-8) for a in advantages]  # avoid division by zero
         return advantages
 
@@ -353,6 +353,9 @@ class DeepSeekOutcomeGroupBuffer(GroupBuffer):
             r - (total_return_sum - r) / (k - 1)
             for r in self.returns
         ]
+        if self.scale_rewards:
+            std_return = th.stack(self.returns).std()
+            advantages = [a / (std_return + 1e-8) for a in advantages]
         return advantages
 
 
