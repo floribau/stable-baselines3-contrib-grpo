@@ -16,7 +16,7 @@ from stable_baselines3.common.utils import FloatSchedule, obs_as_tensor, safe_me
 from stable_baselines3.common.vec_env import VecEnv
 
 from sb3_contrib.common.buffers import BUFFER_CLASS_ALIASES, BaseGroupBuffer, ProcessGroupBuffer, Trajectory
-from sb3_contrib.grpo.policies import ActorPolicy
+from sb3_contrib.grpo.policies import ActorPolicy, ActorCnnPolicy
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
 
@@ -74,8 +74,11 @@ class GRPO(BaseAlgorithm):
 
     policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": ActorPolicy,
-        "ActorPolicy": ActorPolicy,
-        "GroupPolicy": ActorPolicy,
+        "ActorPolicy": ActorPolicy,  # alias for MlpPolicy
+        "GroupPolicy": ActorPolicy,  # alias for MlpPolicy
+        "CnnPolicy:": ActorCnnPolicy,
+        "ActorCnnPolicy": ActorCnnPolicy,  # alias for CnnPolicy
+        "GroupCnnPolicy": ActorCnnPolicy,  # alias for CnnPolicy
     }
 
     def __init__(
