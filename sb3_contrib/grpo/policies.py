@@ -18,7 +18,7 @@ from stable_baselines3.common.distributions import (
     StateDependentNoiseDistribution,
     make_proba_distribution,
 )
-from stable_baselines3.common.policies import BasePolicy, ActorCriticPolicy
+from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
     FlattenExtractor,
@@ -352,6 +352,37 @@ class ActorPolicy(BasePolicy):
             param.requires_grad = False
 
         return frozen_policy
+
+    # NOTE this should probably be removed, as it doesn't solve my problem
+    @classmethod
+    def load_from_actor_critic_policy(
+        cls,
+        path: str,
+        device: th.device | str = "auto",
+    ) -> "ActorPolicy":
+        """
+        Load an ActorPolicy model from a saved ActorCriticPolicy.
+
+        :param path: Path to the saved policy.
+        :param device: Device ton which the policy should be loaded.
+        :return: An instance of ActorPolicy.
+        """
+        device = get_device(device)
+        # Note(antonin): we cannot use `weights_only=True` here because we need to allow
+        # gymnasium imports for the policy to be loaded successfully
+        saved_variables = th.load(path, map_location=device, weights_only=False)
+
+        # Create policy object
+        model = cls(**saved_variables["data"])  # TODO do i need to preprocess data?
+        # Load weights
+        model.load_state_dict(saved_variables["state_dict"])  # TODO do i need to preprocess state_dict?
+        model.to(device)
+        return model
+
+    @classmethod
+    def load(cls, path: str, device: th.device | str = "auto") -> "ActorPolicy":
+        # DEBUG temporarily overwrite the load method to use the new loading function
+        return cls.load_from_actor_critic_policy(path, device=device)
 
 
 class ActorCnnPolicy(ActorPolicy):

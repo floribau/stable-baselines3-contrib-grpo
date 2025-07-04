@@ -60,7 +60,7 @@
         },
 
         {
-            "name": "Debug ActorPolicy loading from ActorCriticPolicy",
+            "name": "Debug ActorPolicy loading an ActorCriticPolicy",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/experiment_rliable_train.py",
@@ -72,14 +72,14 @@
                 "-conf", "sb3_contrib/hyperparams/process-grpo.yml",
                 "-n", "50000",
                 "--eval-freq", "1000",
-                "-f", "logs/exp_17",
+                "-f", "logs/exp_21",
                 "--seed", "0",
-                "-i", "logs/exp_16/ppo/CartPole-v1_4/best_model.zip",
+                "-i", "logs/exp_21/ppo/CartPole-v1_2/best_model.zip",
             ]
         },
 
         {
-            "name": "Debug ActorCritcPolicy loading from ActorCriticPolicy",
+            "name": "Debug ActorCritcPolicy loading an ActorCriticPolicy",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/experiment_rliable_train.py",
@@ -88,17 +88,17 @@
             "args": [
                 "--algo", "ppo",
                 "--env", "CartPole-v1",
-                "-conf", "sb3_contrib/hyperparams/process-grpo.yml",
+                "-conf", "sb3_contrib/hyperparams/ppo.yml",
                 "-n", "50000",
                 "--eval-freq", "1000",
-                "-f", "logs/exp_17",
+                "-f", "logs/exp_21",
                 "--seed", "0",
-                "-i", "logs/exp_16/ppo/CartPole-v1_4/best_model.zip",
+                "-i", "logs/exp_21/ppo/CartPole-v1_2/best_model.zip",
             ]
         },
 
         {
-            "name": "Debug ActorPolicy loading from ActorPolicy",
+            "name": "Debug ActorPolicy loading an ActorPolicy",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/experiment_rliable_train.py",
@@ -110,9 +110,9 @@
                 "-conf", "sb3_contrib/hyperparams/process-grpo.yml",
                 "-n", "50000",
                 "--eval-freq", "1000",
-                "-f", "logs/exp_17",
+                "-f", "logs/exp_21",
                 "--seed", "0",
-                "-i", "logs/exp_16/process-grpo/CartPole-v1_4/best_model.zip",
+                "-i", "logs/exp_21/process-grpo/CartPole-v1_2/best_model.zip",
             ]
         },
     ]
