@@ -200,7 +200,9 @@ class GRPO(BaseAlgorithm):
             )
 
     def collect_group_rollouts(self, env: VecEnv, callback: BaseCallback, group_size: int):
-        """Collect a group of rollouts from the current policy and returns it as a group buffer."""
+        """
+        Collect a group of rollouts from the current policy and returns it as a group buffer.
+        """
         assert self.group_rollout_buffer is not None, "Group rollout buffer must be initialized before collecting rollouts."
 
         # Switch to eval mode (this affects batch norm / dropout)
@@ -246,7 +248,9 @@ class GRPO(BaseAlgorithm):
             callback.on_rollout_end()
 
     def train(self) -> None:
-        """Update policy params."""
+        """
+        Update policy params.
+        """
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
         # Update optimizer learning rate
@@ -274,6 +278,8 @@ class GRPO(BaseAlgorithm):
     def _train_process_supervision(self, clip_range: float) -> tuple[list, list, list, list, list]:
         """
         Process supvervision training method.
+
+        :return: Tuple of lists containing the policy gradient loss, KL loss, entropy loss, clip fraction, and total loss.
         """
         assert self.group_rollout_buffer.supervision_type.is_process_supervision(), "Buffer must be process supervision type."
         # IDEA refactor policy updating into a separate function, this is equal for all supervision types
@@ -400,6 +406,8 @@ class GRPO(BaseAlgorithm):
     def _train_outcome_supervision(self, clip_range: float) -> tuple[list, list, list, list, list]:
         """
         Outcome supervision training method.
+
+        :return: Tuple of lists containing the policy gradient loss, KL loss, entropy loss, clip fraction, and total loss.
         """
         pg_losses, kl_losses, entropy_losses, clip_fractions, losses = [], [], [], [], []
 
@@ -590,3 +598,8 @@ class GRPO(BaseAlgorithm):
             iteration += 1
 
         return self
+
+    def _get_torch_save_params(self) -> tuple[list[str], list[str]]:
+        state_dicts = ["policy", "policy.optimizer"]
+
+        return state_dicts, []

@@ -130,6 +130,8 @@ class RLOO(GRPO):
     def _train_rloo(self) -> tuple[list, list, list, list]:
         """
         RLOO training method (outcome supervision by definition).
+
+        :return: Tuple of lists containing the policy gradient loss, KL loss, entropy loss, and total loss.
         """
         # RLOO outcome supervision update method
         self.policy.set_training_mode(False)
