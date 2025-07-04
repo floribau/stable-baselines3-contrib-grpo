@@ -140,7 +140,7 @@ class RLOO(GRPO):
             # Only collect values for batched policy update for the whole group
             obs, actions, old_log_probs = traj.to_tensor()  # per step log probs
 
-            advantage = advantages[traj_idx]
+            advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)
 
             if isinstance(self.action_space, spaces.Discrete):
                 # Convert discrete action from float to long

@@ -422,7 +422,7 @@ class GRPO(BaseAlgorithm):
 
                 current_log_probs, entropy = self.policy.evaluate_actions(obs, actions)
 
-                advantage = advantages[traj_idx]
+                advantage = th.as_tensor(advantages[traj_idx], dtype=th.float32, device=self.device)
 
                 if self.batch_group_updates:
                     # Only collect values for batched policy update for the whole group
