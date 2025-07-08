@@ -10,6 +10,12 @@ SelfResetVfPPO = TypeVar("SelfResetVfPPO", bound="ResetVfPPO")
 
 
 class ResetVfPPO(PPO):
+    """
+    ResetVfPPO is a variant of PPO that resets the value function parameters
+    when loading a model. This is useful for scenarios where the value function
+    needs to be reinitialized, such as when comparing to GRPO from a pretrained model.
+    It inherits from PPO and overrides the `load` method to reset the value function parameters.
+    """
 
     @classmethod
     def load(  # noqa: C901

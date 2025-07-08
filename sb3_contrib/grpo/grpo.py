@@ -664,7 +664,7 @@ class GRPO(BaseAlgorithm):
                 data["policy_kwargs"]["net_arch"].pop("vf", None)  # Remove vf from network if it exists
 
         if "policy_kwargs" in kwargs and kwargs["policy_kwargs"] != data["policy_kwargs"]:
-            # NOTE this shouldn't be a problem for me. In case of problems, delete this check
+            # NOTE this shouldn't be a problem for our use case. In case of problems, delete this check
             raise ValueError(
                 f"The specified policy kwargs do not equal the stored policy kwargs."
                 f"Stored kwargs: {data['policy_kwargs']}, specified kwargs: {kwargs['policy_kwargs']}"
@@ -709,6 +709,7 @@ class GRPO(BaseAlgorithm):
         try:
             params["policy"] = OrderedDict((k, v) for k, v in params["policy"].items() if "value_net" not in k)
             if "policy.optimizer" in params:
+                # Reset policy optimizer to adapt to different structural properties of new policy
                 del params["policy.optimizer"]
             model.set_parameters(params, exact_match=True, device=device)
         except RuntimeError as e:
