@@ -607,10 +607,6 @@ class GRPO(BaseAlgorithm):
 
         return self
 
-    def _get_torch_save_params(self) -> tuple[list[str], list[str]]:
-        state_dicts = ["policy", "policy.optimizer"]
-
-        return state_dicts, []
 
     @classmethod
     def load(  # noqa: C901
@@ -665,13 +661,15 @@ class GRPO(BaseAlgorithm):
             saved_net_arch = data["policy_kwargs"].get("net_arch")
             if saved_net_arch and isinstance(saved_net_arch, list) and isinstance(saved_net_arch[0], dict):
                 data["policy_kwargs"]["net_arch"] = saved_net_arch[0]
+            if isinstance(data["policy_kwargs"]["net_arch"], dict):
+                data["policy_kwargs"]["net_arch"].pop("vf", None)  # Remove vf from network if it exists
 
         if "policy_kwargs" in kwargs and kwargs["policy_kwargs"] != data["policy_kwargs"]:
+            # NOTE this shouldn't be a problem for me. In case of problems, delete this check
             raise ValueError(
                 f"The specified policy kwargs do not equal the stored policy kwargs."
                 f"Stored kwargs: {data['policy_kwargs']}, specified kwargs: {kwargs['policy_kwargs']}"
             )
-            # NOTE this shouldn't be a problem for me. In case of problems, delete this check
 
         if "observation_space" not in data or "action_space" not in data:
             raise KeyError("The observation_space and action_space were not given, can't verify new environments")
@@ -711,6 +709,8 @@ class GRPO(BaseAlgorithm):
 
         try:
             params["policy"] = OrderedDict((k, v) for k, v in params["policy"].items() if "value_net" not in k)
+            if "policy.optimizer" in params:
+                del params["policy.optimizer"]
             model.set_parameters(params, exact_match=True, device=device)
         except RuntimeError as e:
             # Patch to load policies saved using SB3 < 1.7.0
