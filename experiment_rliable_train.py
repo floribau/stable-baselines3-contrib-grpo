@@ -10,6 +10,7 @@ from stable_baselines3.ppo import PPO
 
 from sb3_contrib.grpo.grpo import GRPO
 from sb3_contrib.rloo.rloo import RLOO
+from sb3_contrib.reset_vf_ppo.reset_vf_ppo import ResetVfPPO
 
 # Register custom algorithms in RL Zoo 3
 ALGOS["process-grpo"] = GRPO
@@ -17,6 +18,8 @@ ALGOS["deepseek-process-grpo"] = GRPO
 ALGOS["outcome-grpo"] = GRPO
 ALGOS["rloo"] = RLOO
 ALGOS["default-ppo"] = PPO
+ALGOS["reset-vf-ppo"] = ResetVfPPO
+
 # TODO add other custom algorithms as needed (e.g., CISPO)
 
 # Start training

@@ -1,0 +1,32 @@
+# Tuned for optimal rewards after 20_000 timesteps
+CartPole-v1:
+  n_envs: 8
+  n_timesteps: !!float 1e5
+  policy: 'MlpPolicy'
+  n_steps: 32
+  # batch_size: 256
+  batch_size: 16
+  # gae_lambda: 0.8
+  gae_lambda: 1
+  # gamma: 0.98
+  gamma: 0.987
+  # n_epochs: 20
+  n_epochs: 10
+  # ent_coef: 0.0
+  ent_coef: 2.6e-08
+  # learning_rate: lin_0.001
+  learning_rate: 0.0003
+  # clip_range: lin_0.2
+  clip_range: 0.1
+  policy_kwargs: "dict(activation_fn=nn.Tanh, net_arch=dict(pi=[64], vf=[64]))"
+
+MountainCar-v0:
+  normalize: true
+  n_envs: 16
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  n_steps: 16
+  gae_lambda: 0.98
+  gamma: 0.99
+  n_epochs: 4
+  ent_coef: 0.0
