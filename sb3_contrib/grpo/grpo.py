@@ -607,7 +607,6 @@ class GRPO(BaseAlgorithm):
 
         return self
 
-
     @classmethod
     def load(  # noqa: C901
         cls,
