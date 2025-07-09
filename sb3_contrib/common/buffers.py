@@ -198,7 +198,7 @@ class TimestepGroupBuffer(BaseGroupBuffer):
         advantages = [th.empty(traj_returns.size(0)) for traj_returns in self.returns]  # placeholder for advantages
 
         for t in range(max_trajectory_length):
-            timestep_returns = np.array([traj_returns[t] if len(traj_returns) > t else 0 for traj_returns in self.returns])
+            timestep_returns = th.stack([traj_returns[t] if len(traj_returns) > t else 0 for traj_returns in self.returns])
             # IDEA does this work better if leaving out the 0s?
             mean_timestep_return = timestep_returns.mean()
             std_timestep_return = timestep_returns.std()

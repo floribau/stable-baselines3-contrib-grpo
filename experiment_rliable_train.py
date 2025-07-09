@@ -17,6 +17,7 @@ ALGOS["deepseek-process-grpo"] = GRPO
 ALGOS["outcome-grpo"] = GRPO
 ALGOS["rloo"] = RLOO
 ALGOS["default-ppo"] = PPO
+ALGOS["timestep-grpo"] = GRPO  # Using GRPO for TimestepGroupBuffer
 # TODO add other custom algorithms as needed (e.g., CISPO)
 
 # Start training
