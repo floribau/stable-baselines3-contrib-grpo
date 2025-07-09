@@ -51,10 +51,28 @@
             "args": [
                 "--algo", "process-grpo",
                 "--env", "CartPole-v1",
-                "-conf", "sb3_contrib/hyperparams/process-grpo_train.yml",
+                "-conf", "sb3_contrib/hyperparams/process-grpo.yml",
                 "-n", "50000",
                 "--eval-freq", "1000",
                 "-f", "logs/exp_4",
+                "--seed", "0",
+            ]
+        },
+
+        {
+            "name": "Debug Timestep-GRPO training",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/experiment_rliable_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--algo", "timestep-grpo",
+                "--env", "CartPole-v1",
+                "-conf", "sb3_contrib/hyperparams/timestep-grpo.yml",
+                "-n", "100000",
+                "--eval-freq", "1000",
+                "-f", "logs/exp_101",
                 "--seed", "0",
             ]
         },

@@ -1,0 +1,56 @@
+CartPole-v1:
+  n_timesteps: !!float 1e5
+  policy: 'GroupPolicy'
+  group_rollout_buffer_class: 'TimestepGroupBuffer'
+  group_size: 4
+  n_epochs: 5
+  ent_coef: 0.0064
+  learning_rate: !!float 0.00016
+  clip_range: !!float 0.1
+  max_grad_norm: 0.74
+  policy_kwargs: "dict(activation_fn=nn.Tanh, net_arch=dict(pi=[64, 64]))"
+
+MountainCar-v0:
+  normalize: true
+  n_timesteps: !!float 1e6
+  policy: 'GroupPolicy'
+  group_rollout_buffer_class: 'TimestepGroupBuffer'
+  group_size: 16
+  n_epochs: 10
+
+FrozenLake-v1: 
+  n_timesteps: !!float 1e5
+  policy: 'GroupPolicy'
+  group_rollout_buffer_class: 'TimestepGroupBuffer'
+  group_size: 16
+  learning_rate: 0.00175
+  ent_coef: 0.00285
+  clip_range: 0.2
+  n_epochs: 20
+  max_grad_norm: 0.33
+  policy_kwargs: "dict(activation_fn=nn.ReLU, net_arch=dict(pi=[256, 256]))"
+
+FrozenLake8x8-v1: 
+  n_timesteps: !!float 1e5
+  policy: 'GroupPolicy'
+  group_rollout_buffer_class: 'TimestepGroupBuffer'
+  group_size: 256
+  learning_rate: 0.00044
+  ent_coef: 0.00019
+  clip_range: 0.1
+  n_epochs: 5
+  max_grad_norm: 1.64
+  policy_kwargs: "dict(activation_fn=nn.Tanh, net_arch=dict(pi=[256, 256]))"
+
+CliffWalking-v0: 
+  n_timesteps: !!float 1e5
+  policy: 'GroupPolicy'
+  group_rollout_buffer_class: 'TimestepGroupBuffer'
+  group_size: 16
+  learning_rate: 0.00175
+  ent_coef: 0.00285
+  clip_range: 0.2
+  n_epochs: 20
+  max_grad_norm: 0.33
+  policy_kwargs: "dict(activation_fn=nn.ReLU, net_arch=dict(pi=[64, 64]))"
+

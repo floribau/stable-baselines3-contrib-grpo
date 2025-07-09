@@ -3,22 +3,22 @@ CartPole-v1:
   n_envs: 8
   n_timesteps: !!float 1e5
   policy: 'MlpPolicy'
-  n_steps: 32
+  n_steps: 64
   # batch_size: 256
   batch_size: 16
   # gae_lambda: 0.8
-  gae_lambda: 1
+  gae_lambda: 0.97
   # gamma: 0.98
-  gamma: 0.987
+  gamma: 0.99
   # n_epochs: 20
-  n_epochs: 10
+  n_epochs: 5
   # ent_coef: 0.0
-  ent_coef: 2.6e-08
+  ent_coef: 0.00035
   # learning_rate: lin_0.001
-  learning_rate: 0.0003
+  learning_rate: 0.001
   # clip_range: lin_0.2
-  clip_range: 0.1
-  policy_kwargs: "dict(activation_fn=nn.Tanh, net_arch=dict(pi=[64], vf=[64]))"
+  clip_range: 0.4
+  policy_kwargs: "dict(activation_fn=nn.ReLU, net_arch=dict(pi=[64, 64], vf=[64, 64]))"
 
 MountainCar-v0:
   normalize: true
