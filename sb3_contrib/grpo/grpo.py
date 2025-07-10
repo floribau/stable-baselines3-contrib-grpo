@@ -54,16 +54,21 @@ class GRPO(BaseAlgorithm):
     :param ent_coef: Entropy coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
-        instead of action noise exploration (default: False)
+        instead of action noise exploration (default: False).
+        NOTE: This seems not to be used unless Box Action Spaces are supported.
     :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
-        Default: -1 (only sample at the beginning of the rollout)
-    :param group_rollout_buffer_class: Group Rollout buffer class to use. If ``None``, it will be automatically selected.
+        Default: -1 (only sample at the beginning of the rollout).
+        NOTE: This seems not to be used unless Box Action Spaces are supported.
+    :param group_rollout_buffer_class: Group Rollout buffer class to use. If ``None``, it will be automatically selected. 
     :param group_rollout_buffer_kwargs: Keyword arguments to pass to the group rollout buffer on creation
     :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
-        the reported success rate, mean episode length, and mean reward over
-    :param tensorboard_log: the log location for tensorboard (if None, no logging)
+        the reported success rate, mean episode length, and mean reward over.
+        NOTE: I didn't actively change this param.
+    :param tensorboard_log: the log location for tensorboard (if None, no logging).
+        NOTE: I didn't actively change this param.
     :param monitor_wrapper: When creating an environment, whether to wrap it
         or not in a Monitor wrapper.
+        NOTE: I didn't actively change this param.
     :param policy_kwargs: additional arguments to be passed to the policy on creation. See :ref:`ppo_policies`
     :param verbose: Verbosity level: 0 for no output, 1 for info messages (such as device or wrappers used), 2 for
         debug messages
