@@ -7,7 +7,7 @@ CartPole-v1:
   # n_epochs: 20
   n_epochs: 10
   # ent_coef: 0.0
-  ent_coef: 4e-07
+  ent_coef: !!float 4e-07
   # learning_rate: lin_0.001
   learning_rate: 0.0018
   # clip_range: lin_0.2
