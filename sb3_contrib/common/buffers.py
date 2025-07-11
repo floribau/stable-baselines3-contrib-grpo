@@ -165,53 +165,6 @@ class BaseGroupBuffer(BaseBuffer, ABC):
         raise NotImplementedError
 
 
-class TimestepGroupBuffer(BaseGroupBuffer):
-    """
-    Buffer class containing a group of trajectories for a single GRPO update.
-    The buffer implements process supervision, where the advantage is computed as the returns-to-go at each timestep t relative
-    to the mean return-to-go of all trajectories at timestep t in the group.
-
-    BUG this version doesn't work because the update signal is too small.
-    """
-
-    def __init__(
-        self,
-        buffer_size: int,
-        observation_space: spaces.Space,
-        action_space: spaces.Space,
-        scale_rewards: bool = False,
-        device: th.device | str = "auto",
-        n_envs: int = 1,
-    ):
-        super().__init__(buffer_size, observation_space, action_space, scale_rewards, device, n_envs)
-        self.supervision_type = SupervisionType.PROCESS
-
-    def _maybe_compute_returns(self):
-        if self.returns is None:
-            self.returns = [traj.get_returns_to_go() for traj in self.trajectories]
-
-    def get_advantages(self) -> list[th.Tensor]:
-        assert len(self.trajectories) > 0
-        self._maybe_compute_returns()
-
-        max_trajectory_length = max(traj_returns.size(0) for traj_returns in self.returns)
-        advantages = [th.empty(traj_returns.size(0)) for traj_returns in self.returns]  # placeholder for advantages
-
-        for t in range(max_trajectory_length):
-            timestep_returns = np.array([traj_returns[t] if len(traj_returns) > t else 0 for traj_returns in self.returns])
-            mean_timestep_return = timestep_returns.mean()
-            std_timestep_return = timestep_returns.std()
-
-            for i, traj_returns in enumerate(self.returns):
-                if len(traj_returns) > t:
-                    single_advantage = traj_returns[t] - mean_timestep_return
-                    if self.scale_rewards:
-                        single_advantage /= std_timestep_return + 1e-8  # avoid division by zero
-                    advantages[i][t] = single_advantage
-
-            return advantages
-
-
 class ProcessGroupBuffer(BaseGroupBuffer):
     """
     Buffer class containing a group of trajectories for a single GRPO update.
@@ -358,8 +311,7 @@ class DeepSeekOutcomeGroupBuffer(BaseGroupBuffer):
 
 
 BUFFER_CLASS_ALIASES = {
-    "GroupBuffer": BaseGroupBuffer,
-    "TimestepGroupBuffer": TimestepGroupBuffer,
+    "GroupBuffer": BaseGroupBuffer,  # technically shouldn't be used
     "ProcessGroupBuffer": ProcessGroupBuffer,
     "DeepSeekProcessGroupBuffer": DeepSeekProcessGroupBuffer,
     "DeepSeekOutcomeGroupBuffer": DeepSeekOutcomeGroupBuffer,
